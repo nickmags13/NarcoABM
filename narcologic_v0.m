@@ -68,6 +68,7 @@ LANDSUIT(itreecov)=treecov(itreecov)./max(treecov(itreecov));   % for now, just 
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %%% Interdiction Agent %%%
 slprob_0=0.001;     % baseline probability of seisure and loss event
+delta_sl=0.05;      % reinforcement learning rate for S&L vents (i.e., weight on new information)
 
 %%% Network Agent %%%
 stock_0=100000;     %initial cocaine stock at producer node
@@ -173,7 +174,9 @@ CPCTY=zeros(nnodes);     % maximum flow possible between nodes
 CTRANS=zeros(nnodes);   % transportation costs between nodes
 rentcap=0.3*ones(nnodes,1);     % proportion of value of shipments 'captured' by nodes
 
-slevent=zeros(nnodes,nnodes,TMAX);
+slevent=zeros(nnodes,nnodes,TMAX);  % occurrence of S&L event
+slsuccess=zeros(nnodes,nnodes,TMAX);    % S&L events in which cocaine was seized
+SLPROB=zeros(nnodes,nnodes,TMAX);   % dynamic probability of S&L event per edge
 intrdevent=zeros(nnodes,TMAX);
 
 STOCK=zeros(nnodes,TMAX);       %dynamic cocaine stock at each node
@@ -184,6 +187,7 @@ TOTCPTL=zeros(nnodes,TMAX);     % total value of cocaine at each node
 ICPTL=zeros(nnodes,TMAX);       % dynamic illicit capital accumulated at each node
 LCPTL=zeros(nnodes,TMAX);       % dynamic legitimate capital accumulated at each node
 LEAK=zeros(nnodes,TMAX);        % dynamic amount of cocaine leaked at each node
+INTRISK=zeros(nnodes,TMAX);     % dynamic probability of interdiction events per node
 
 
 for k=1:nnodes-1
@@ -262,8 +266,8 @@ for j=1:nnodes
 end
 
 %%% Initialize Interdiction agent
-SLPROB=(DIST./max(max(DIST))).^2;   % dynamic probability of seisure and loss at edges
-INTRDPROB=slprob_0*ones(nnodes,1); % dynamic probability of interdiction at nodes
+SLPROB(:,:,TSTART+1)=(DIST./max(max(DIST))).^2;   % dynamic probability of seisure and loss at edges
+INTRDPROB(:,TSTART+1)=slprob_0*ones(nnodes,1); % dynamic probability of interdiction at nodes
 
 %%% Initialize Node agents
 STOCK(:,TSTART)=NodeTable.Stock(:);
@@ -292,11 +296,8 @@ MOV=zeros(nnodes,nnodes,TMAX);
 
 for t=TSTART+1:TMAX
     %%% S&L and interdiction events
-    %!!! Criteria for updating interdiction event probability
-    %        SLPROB ...
-    %        INTRDPROB ...
-    slevent(:,:,t)=(SLPROB > rand(size(ADJ)));
-    intrdevent(:,t)=(INTRDPROB > rand(nnodes,1));
+    slevent(:,:,t)=(SLPROB(:,:,t) > rand(size(ADJ)));
+    intrdevent(:,t)=(INTRDPROB(:,t) > rand(nnodes,1));
     MOV(:,1,t)=NodeTable.Stock(:);
     
     for n=1:nnodes-1 %exclude end node
@@ -335,6 +336,7 @@ for t=TSTART+1:TMAX
          FLOW(n,inei,t)=min(WGHT(n,inei).*floor(STOCK(n,t)/length(inei)),CPCTY(n,inei));
          if isempty(find(ismember(find(slevent(n,:,t)),inei),1)) == 0
              isl=(slevent(n,inei,t)==1);
+             slsuccess(n,inei(isl),t)=FLOW(n,inei(isl),t);
              FLOW(n,inei(isl),t)=0;
          end
          STOCK(inei,t)=STOCK(inei,t)+FLOW(n,inei,t)';
@@ -349,11 +351,8 @@ for t=TSTART+1:TMAX
 
          NodeTable.Stock(:)=STOCK(:,t);
          NodeTable.Capital(:)=TOTCPTL(:,t);
-
       end
-      %%% Will need to include routine for dissipating loops
-      % while 
-      
+
       %%%% Update perceived risk in response to S&L and Interdiction events
       timeweight=twght(n);
       % identify neighbors in network (without network toolbox)
@@ -366,6 +365,12 @@ for t=TSTART+1:TMAX
           intrdoccur,t,TSTART,alpharisk,betarisk,timeweight);
       SLRISK(n,[bcknei fwdnei])=sl_risk;
       INTRISK(n,t+1)=mean(intrd_risk);  %node-specific risk is the average of neighbor risks
+      
+      %%% Updating interdiction event probability
+      SLPROB(:,:,t+1)=(1-delta_sl).*SLPROB(:,:,t)+delta_sl.*...
+          (slsuccess(:,:,t)./max(max(slsuccess(:,:,t))));
+%       INTRDPROB(:,t+1)=...
+      
       
       %%% Make trafficking movie
       MOV(:,n+1,t)=STOCK(:,t);      % Capture stock data after each node iteration
