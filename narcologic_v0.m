@@ -1,6 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%   NarcoLogic ABM   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+tic         % start run timer
 cd C:\Users\nmagliocca\Documents\Matlab_code\NarcoLogic
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %@@@@@@@@ Procedures @@@@@@@@@@
@@ -265,7 +266,8 @@ for j=1:nnodes
 end
 
 %%% Initialize Interdiction agent
-SLPROB(:,:,TSTART+1)=(DIST./max(max(DIST))).^2;   % dynamic probability of seisure and loss at edges
+SLPROB(:,:,TSTART)=(DIST./max(max(DIST)));   % dynamic probability of seisure and loss at edges
+SLPROB(:,:,TSTART+1)=SLPROB(:,:,TSTART);
 INTRDPROB(:,TSTART+1)=slprob_0*ones(nnodes,1); % dynamic probability of interdiction at nodes
 
 %%% Initialize Node agents
@@ -274,7 +276,7 @@ TOTCPTL(:,TSTART)=NodeTable.Capital(:);
 PRICE(:,TSTART+1)=PRICE(:,TSTART);
 
 %%% Set-up node and network risk perceptions
-SLRISK(:,:)=(DIST./max(max(DIST))).^2;
+SLRISK(:,:)=(DIST./max(max(DIST)));
 INTRISK(:,TSTART:TSTART+1)=slprob_0.*ones(nnodes,2);
 
 % subjective risk perception with time distortion
@@ -293,7 +295,7 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-for t=TSTART+1:3
+for t=TSTART+1:TMAX
     %%% S&L and interdiction events
     slevent(:,:,t)=(SLPROB(:,:,t) > rand(size(ADJ)));
     intrdevent(:,t)=(INTRDPROB(:,t) > rand(nnodes,1));
@@ -330,21 +332,29 @@ for t=TSTART+1:3
 %          if length(inei) >  10
 %              inei=randperm(length(inei),10);
 %          end
-         
+
          %%% !!! Put checks in to make sure buying node has enough capital
          FLOW(n,inei,t)=min(WGHT(n,inei).*floor(STOCK(n,t)/length(inei)),CPCTY(n,inei));
+         % Check for S%L event
          if isempty(find(ismember(find(slevent(n,:,t)),inei),1)) == 0
              isl=(slevent(n,inei,t)==1);
              slsuccess(n,inei(isl),t)=FLOW(n,inei(isl),t);
-             FLOW(n,inei(isl),t)=0;
+             OUTFLOW(n,t)=sum(FLOW(n,inei,t));
+             STOCK(n,t)=STOCK(n,t)-OUTFLOW(n,t);
+             FLOW(n,inei(isl),t)=0;     % remove from trafficking route due to S&L event
+             STOCK(inei,t)=STOCK(inei,t)+FLOW(n,inei,t)';
+             TOTCPTL(n,t)=TOTCPTL(n,t)+sum(FLOW(n,inei,t).*ADDVAL(n,inei));
+             TOTCPTL(inei,t)=TOTCPTL(inei,t-1)-(FLOW(n,inei,t)'.*PRICE(inei,t));
+             ICPTL(n,t)=rentcap(n)*sum(FLOW(n,inei).*ADDVAL(n,inei));
+             
+         else
+             OUTFLOW(n,t)=sum(FLOW(n,inei,t));
+             STOCK(n,t)=STOCK(n,t)-OUTFLOW(n,t);
+             STOCK(inei,t)=STOCK(inei,t)+FLOW(n,inei,t)';
+             TOTCPTL(n,t)=TOTCPTL(n,t)+sum(FLOW(n,inei,t).*ADDVAL(n,inei));
+             TOTCPTL(inei,t)=TOTCPTL(inei,t-1)-(FLOW(n,inei,t)'.*PRICE(inei,t));
+             ICPTL(n,t)=rentcap(n)*sum(FLOW(n,inei).*ADDVAL(n,inei));
          end
-         STOCK(inei,t)=STOCK(inei,t)+FLOW(n,inei,t)';
-         TOTCPTL(n,t)=TOTCPTL(n,t)+sum(FLOW(n,inei,t).*ADDVAL(n,inei));
-         TOTCPTL(inei,t)=TOTCPTL(inei,t-1)-(FLOW(n,inei,t)'.*PRICE(inei,t));
-         ICPTL(n,t)=rentcap(n)*sum(FLOW(n,inei).*ADDVAL(n,inei));
-         OUTFLOW(n,t)=sum(FLOW(n,inei,t));
-         STOCK(n,t)=STOCK(n,t)-OUTFLOW(n,t);
-         
          %!!!!!!!!!!!
 %          ICPTL(n,t)=ICPTL(n,t)-OUTFLOW(n,t)*VALUE(  %account for value retained at node
 
@@ -366,118 +376,138 @@ for t=TSTART+1:3
       INTRISK(n,t+1)=mean(intrd_risk);  %node-specific risk is the average of neighbor risks
       
       %%% Updating interdiction event probability
-      SLPROB(:,:,t+1)=(1-delta_sl).*SLPROB(:,:,t)+delta_sl.*...
-          (slsuccess(:,:,t)./max(max(slsuccess(:,:,t))));
+      SLPROB(:,:,t+1)=max((1-delta_sl).*SLPROB(:,:,t)+delta_sl.*...
+          (slsuccess(:,:,t)./max(max(slsuccess(:,:,t)))),SLPROB(:,:,TSTART));
       INTRDPROB(:,t+1)=INTRDPROB(:,t);
       
       
       %%% Make trafficking movie
-      MOV(:,n+1,t)=STOCK(:,t);      % Capture stock data after each node iteration
+      MOV(:,n,t)=STOCK(:,t);      % Capture stock data after each node iteration
     end
     STOCK(1,t+1)=stock_0;    %additional production to enter network next time step
     STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step
     NodeTable.Stock(1)=stock_0;
     NodeTable.Stock(nnodes)=0;
 end
-
-% %%% Visualization %%%
-
-%%% Trafficking movie
-writerObj = VideoWriter('trafficking_risk.mp4','MPEG-4');
-writerObj.FrameRate=2;
-open(writerObj);
-
-for t=TSTART+1:TMAX
-h1=figure;
-set(h1,'Color','white','Visible','off')
-geoshow(CAadm0,'FaceColor',[1 1 1])
-hold on
-plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,t)/1000))
-fedge=find(FLOW(1,:,t) > 0);
-for g=1:length(fedge)
-    plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
-end
-plot(nodelon(2:nnodes),nodelat(2:nnodes),'b.','MarkerSize',3)
-xlabel('Longitude')
-ylabel('Latitude')
-title(sprintf('Timestep(month) = %d',t-1))
-frame = getframe(h1);
-writeVideo(writerObj,frame);
-% set(gca,'nextplot','replacechildren');
-% set(gcf,'Renderer','zbuffer');
-% ax=gca;
-% movfilename='testmov.gif';
-% cmap=get(h1,'ColorMap');
-% ax.NextPlot='replaceChildren';
-% MOV(nnodes-1) = struct('cdata',[],'colormap',[]);
-for mm=2:nnodes
-   
-    if isempty(find(MOV(mm-1,mm,t) > 0,1)) == 1
-        continue
-    else
-        clf
-        geoshow(CAadm0,'FaceColor',[1 1 1])
-        hold on
-        for nn=1:nnodes
-            if MOV(nn,mm,t) > 0
-                plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,t)./1000))
-            else
-                plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
-            end
-        end
-        fedge=find(FLOW(mm-1,:,t) > 0);
-        for g=1:length(fedge)
-            plot([nodelon(mm-1); nodelon(fedge(g))],[nodelat(mm-1); nodelat(fedge(g))],'-k')
-        end
-    end
-    xlabel('Longitude')
-    ylabel('Latitude')
-    title(sprintf('Timestep(month) = %d',t-1))
-    frame = getframe(h1);
-    writeVideo(writerObj,frame);
-end
-end
-close(writerObj);
-
-% im = frame2im(frame);
-% [A,cmap] = rgb2ind(im,256);
-% if n == 1;
-%     imwrite(A,cmap,movfilename,'gif','LoopCount',Inf,'DelayTime',0.5);
-% else
-%     imwrite(A,cmap,movfilename,'gif','WriteMode','append','DelayTime',0.5);
-% end
+toc     % stop run timer
+% %%
+% % %%% Visualization %%%
 % 
-% figure
-% axes('Position',ax.Position)
-% movie(MOV,1,1)
-% geoshow(CAmap)
-% hold on
-% geoshow(startlat,startlon,'DisplayType','point','MarkerEdgeColor','g','Marker', '+')
-% geoshow(endlat,endlon,'DisplayType','point','MarkerEdgeColor','r','Marker', '+')
-% geoshow(NodeTable.Lat,NodeTable.Lon,'DisplayType','point','MarkerEdgeColor','b','Marker', '.')
-% %quick trafficking network viz
-figure
-plot(nodelon,nodelat,'k.','MarkerSize',1)
-hold on
-for i=1:length(nodelat)
-    %     fedge=find(EdgeTable.EndNodes(:,1)==i);
-    fedge=find(ADJ(i,:)==1);
-    for g=1:length(fedge)
-        plot([nodelon(i); nodelon(fedge(g))],[nodelat(i); nodelat(fedge(g))],'-k')
-    end
-    plot(nodelon(i),nodelat(i),'r.','MarkerSize',ceil(PRICE(i,1)./1000))
-end
-% plot(nodelon,nodelat,'r.','MarkerSize',ceil(PRICE(:,1)./1000))
-% % Trafficking volume per node
-figure
-plot(nodelon,nodelat,'k.','MarkerSize',1)
-hold on
-for i=1:length(nodelat)
-    if STOCK(i,t) > 0
-        plot(nodelon(i),nodelat(i),'r.','MarkerSize',ceil(STOCK(i,t)./1000))
-    else
-        plot(nodelon(i),nodelat(i),'k.','MarkerSize',1)
-    end
-end
-%%% Command to use
-% digraph, maxflow, nearest
+% %%% Trafficking movie
+% writerObj = VideoWriter('trafficking_risk.mp4','MPEG-4');
+% writerObj.FrameRate=2;
+% open(writerObj);
+% 
+% h1=figure;
+% set(h1,'Color','white','Visible','off')
+% 
+% for tt=TSTART+1:t
+%     geoshow(CAadm0,'FaceColor',[1 1 1])
+%     hold on
+% %     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,tt)/1000))
+%     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(stock_0/1000))
+%     fedge=find(FLOW(1,:,tt) > 0);
+%     for g=1:length(fedge)
+%         plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
+%     end
+%     plot(nodelon(2:nnodes),nodelat(2:nnodes),'b.','MarkerSize',3)
+%     xlabel('Longitude')
+%     ylabel('Latitude')
+%     title(sprintf('Timestep(month) = %d',tt-1))
+%     frame = getframe(h1);
+%     writeVideo(writerObj,frame);
+%     % set(gca,'nextplot','replacechildren');
+%     % set(gcf,'Renderer','zbuffer');
+%     % ax=gca;
+%     % movfilename='testmov.gif';
+%     % cmap=get(h1,'ColorMap');
+%     % ax.NextPlot='replaceChildren';
+%     % MOV(nnodes-1) = struct('cdata',[],'colormap',[]);
+%     for mm=1:nnodes-1
+%         if mm == 1
+%             clf
+%             geoshow(CAadm0,'FaceColor',[1 1 1])
+%             hold on
+%             for nn=1:nnodes
+%                 if MOV(nn,mm,tt) > 0
+%                     plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./1000))
+%                 else
+%                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
+%                 end
+%             end
+%             continue
+%         end
+%         if isempty(find(MOV(mm,mm-1,tt) > 0,1)) == 1
+%             continue
+%         else
+%             clf
+%             geoshow(CAadm0,'FaceColor',[1 1 1])
+%             hold on
+%             for nn=1:nnodes
+%                 if MOV(nn,mm,tt) > 0
+%                     plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./1000))
+%                 else
+%                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
+%                 end
+%             end
+%             fedge=find(FLOW(mm,:,tt) > 0);
+%             if isempty(find(fedge,1)) == 1
+%                 plot(nodelon(mm),nodelat(mm),'kx','MarkerSize',ceil(MOV(mm,mm-1,tt)./1000))
+%             else
+%                 for g=1:length(fedge)
+%                     plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
+%                 end
+%             end
+%         end
+%         xlabel('Longitude')
+%         ylabel('Latitude')
+%         title(sprintf('Timestep(month) = %d',tt-1))
+%         frame = getframe(h1);
+%         writeVideo(writerObj,frame);
+%     end
+%     clf
+% end
+% close(writerObj);
+% 
+% % im = frame2im(frame);
+% % [A,cmap] = rgb2ind(im,256);
+% % if n == 1;
+% %     imwrite(A,cmap,movfilename,'gif','LoopCount',Inf,'DelayTime',0.5);
+% % else
+% %     imwrite(A,cmap,movfilename,'gif','WriteMode','append','DelayTime',0.5);
+% % end
+% % 
+% % figure
+% % axes('Position',ax.Position)
+% % movie(MOV,1,1)
+% % geoshow(CAmap)
+% % hold on
+% % geoshow(startlat,startlon,'DisplayType','point','MarkerEdgeColor','g','Marker', '+')
+% % geoshow(endlat,endlon,'DisplayType','point','MarkerEdgeColor','r','Marker', '+')
+% % geoshow(NodeTable.Lat,NodeTable.Lon,'DisplayType','point','MarkerEdgeColor','b','Marker', '.')
+% % %quick trafficking network viz
+% % figure
+% % plot(nodelon,nodelat,'k.','MarkerSize',1)
+% % hold on
+% % for i=1:length(nodelat)
+% %     %     fedge=find(EdgeTable.EndNodes(:,1)==i);
+% %     fedge=find(ADJ(i,:)==1);
+% %     for g=1:length(fedge)
+% %         plot([nodelon(i); nodelon(fedge(g))],[nodelat(i); nodelat(fedge(g))],'-k')
+% %     end
+% %     plot(nodelon(i),nodelat(i),'r.','MarkerSize',ceil(PRICE(i,1)./1000))
+% % end
+% % % plot(nodelon,nodelat,'r.','MarkerSize',ceil(PRICE(:,1)./1000))
+% % % % Trafficking volume per node
+% % figure
+% % plot(nodelon,nodelat,'k.','MarkerSize',1)
+% % hold on
+% % for i=1:length(nodelat)
+% %     if STOCK(i,t) > 0
+% %         plot(nodelon(i),nodelat(i),'r.','MarkerSize',ceil(STOCK(i,t)./1000))
+% %     else
+% %         plot(nodelon(i),nodelat(i),'k.','MarkerSize',1)
+% %     end
+% % end
+% %%% Command to use
+% % digraph, maxflow, nearest
