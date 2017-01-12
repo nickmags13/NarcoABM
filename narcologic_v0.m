@@ -178,6 +178,7 @@ slevent=zeros(nnodes,nnodes,TMAX);  % occurrence of S&L event
 slsuccess=zeros(nnodes,nnodes,TMAX);    % S&L events in which cocaine was seized
 SLPROB=zeros(nnodes,nnodes,TMAX);   % dynamic probability of S&L event per edge
 intrdevent=zeros(nnodes,TMAX);
+INTRDPROB=zeros(nnodes,TMAX);
 
 STOCK=zeros(nnodes,TMAX);       %dynamic cocaine stock at each node
 PRICE=zeros(nnodes,TMAX);       % $/kilo at each node
@@ -187,8 +188,6 @@ TOTCPTL=zeros(nnodes,TMAX);     % total value of cocaine at each node
 ICPTL=zeros(nnodes,TMAX);       % dynamic illicit capital accumulated at each node
 LCPTL=zeros(nnodes,TMAX);       % dynamic legitimate capital accumulated at each node
 LEAK=zeros(nnodes,TMAX);        % dynamic amount of cocaine leaked at each node
-INTRISK=zeros(nnodes,TMAX);     % dynamic probability of interdiction events per node
-
 
 for k=1:nnodes-1
     if k == 1
@@ -294,7 +293,7 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-for t=TSTART+1:TMAX
+for t=TSTART+1:3
     %%% S&L and interdiction events
     slevent(:,:,t)=(SLPROB(:,:,t) > rand(size(ADJ)));
     intrdevent(:,t)=(INTRDPROB(:,t) > rand(nnodes,1));
@@ -358,9 +357,9 @@ for t=TSTART+1:TMAX
       % identify neighbors in network (without network toolbox)
       bcknei=EdgeTable.EndNodes(EdgeTable.EndNodes(:,2) == n,1)';
       fwdnei=inei;
-      sloccur=reshape(slevent(n,[bcknei fwdnei],TSTART:t),length(TSTART:t),...
+      sloccur=reshape(slevent(n,[bcknei fwdnei],TSTART+1:t),length(TSTART+1:t),...
           length([bcknei fwdnei]));
-      intrdoccur=intrdevent([bcknei fwdnei],TSTART:t);
+      intrdoccur=intrdevent([bcknei fwdnei],TSTART+1:t);
       [sl_risk,intrd_risk,slevnt,intrdevnt,tmevnt]=calc_intrisk(sloccur,...
           intrdoccur,t,TSTART,alpharisk,betarisk,timeweight);
       SLRISK(n,[bcknei fwdnei])=sl_risk;
@@ -369,7 +368,7 @@ for t=TSTART+1:TMAX
       %%% Updating interdiction event probability
       SLPROB(:,:,t+1)=(1-delta_sl).*SLPROB(:,:,t)+delta_sl.*...
           (slsuccess(:,:,t)./max(max(slsuccess(:,:,t))));
-%       INTRDPROB(:,t+1)=...
+      INTRDPROB(:,t+1)=INTRDPROB(:,t);
       
       
       %%% Make trafficking movie
@@ -388,6 +387,7 @@ writerObj = VideoWriter('trafficking_risk.mp4','MPEG-4');
 writerObj.FrameRate=2;
 open(writerObj);
 
+for t=TSTART+1:TMAX
 h1=figure;
 set(h1,'Color','white','Visible','off')
 geoshow(CAadm0,'FaceColor',[1 1 1])
@@ -435,6 +435,7 @@ for mm=2:nnodes
     title(sprintf('Timestep(month) = %d',t-1))
     frame = getframe(h1);
     writeVideo(writerObj,frame);
+end
 end
 close(writerObj);
 
