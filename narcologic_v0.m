@@ -124,7 +124,8 @@ nodecptl=0;
 for i=1:length(cntrycodes)
     icntry=find(ca_adm0 == orderccodes(i));
     ipotnode=find(ismember(icntry,itreehigh)==1);   %place nodes based on treecover
-    randnode=icntry(ipotnode(randperm(length(ipotnode),10)));
+    randnode=icntry(ipotnode(randperm(length(ipotnode),...
+        round(10*avgtcov./median(avgtcov)))));
     [nrow,ncol]=ind2sub(size(ca_adm0),randnode);
     [nlat,nlon]=pix2latlon(Rcagrid,nrow,ncol);
     nodeid=[nodeid length(nodeid)+(1:length(randnode))];
