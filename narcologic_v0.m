@@ -52,6 +52,13 @@ cagrid_cntry(cagrid_cntry == 255)=0; %remove No Data value
 ca_adm0=double(cagrid_cntry);
 cellsize=Rcagrid.CellExtentInLatitude;
 
+cntrycodes=unique(cagrid_cntry);    %subset landscape by country to place nodes
+% Belize(23),Costa
+% Rica(55),Panama(173),Guatemala(94),Honduras(101),Nicuragua(161),El
+% Salvador(70)
+cntrycodes=cntrycodes(cntrycodes ~= 0);
+orderccodes=[173 55 161 94 70 101 23]; %order countries in desired order of nodes
+
 % Tree cover
 [tcov,Rtcov]=geotiffread('X:\CentralAmericaData\CentralAmerica\trcv_2000_500.tif');
 treecov=tcov;
@@ -60,6 +67,10 @@ treecov=double(treecov);
 itreecov=find(treecov > 0); %identify high forest cover areas
 treecovpct=quantile(treecov(itreecov),[0.025 0.25 0.50 0.75 0.975]);
 itreehigh=find(treecov >= 97);
+avgtcov=zeros(length(cntrycodes),1);    %average tree cover per county, weighting for generating trade nodes
+for cc=1:length(orderccodes)
+    avgtcov(cc)=mean(treecov(ca_adm0 == orderccodes(cc)));
+end
 
 LANDSUIT=zeros(size(treecov));  % land suitability based on forest loss (and narco variable) predictors
 LANDSUIT(itreecov)=treecov(itreecov)./max(treecov(itreecov));   % for now, just based on tree cover (high tree cover = high suitability)
@@ -93,13 +104,6 @@ pend=geopoint(endlat,endlon,'NodeName',{'End Node'});
 alpharisk=2;  %baseline
 timewght_0=0.91;     %time discounting for subjective risk perception (Gallagher, 2014), range[0,1.05]
 betarisk=alpharisk/slprob_0-alpharisk;
-
-cntrycodes=unique(cagrid_cntry);    %subset landscape by country to place nodes
-% Belize(23),Costa
-% Rica(55),Panama(173),Guatemala(94),Honduras(101),Nicuragua(161),El
-% Salvador(70)
-cntrycodes=cntrycodes(cntrycodes ~= 0);
-orderccodes=[173 55 161 94 70 101 23]; %order countries in desired order of nodes
 
 % cntrycpcty=[0.1 0.1 0.1 0.1 0.1 0.1 0.1];   %country-specific, per node trafficking capacity
 
@@ -394,7 +398,7 @@ toc     % stop run timer
 % % %%% Visualization %%%
 % 
 % %%% Trafficking movie
-% writerObj = VideoWriter('trafficking_risk.mp4','MPEG-4');
+% writerObj = VideoWriter('trafficking_risk_v2.mp4','MPEG-4');
 % writerObj.FrameRate=2;
 % open(writerObj);
 % 
