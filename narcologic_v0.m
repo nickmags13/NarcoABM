@@ -66,7 +66,7 @@ treecov(treecov==255 | cagrid_cntry == 0)=-1;
 treecov=double(treecov);
 itreecov=find(treecov > 0); %identify high forest cover areas
 treecovpct=quantile(treecov(itreecov),[0.025 0.25 0.50 0.75 0.975]);
-itreehigh=find(treecov >= 97);
+itreepick=find(treecov >= treecovpct(2) & treecov < treecovpct(3));
 avgtcov=zeros(length(cntrycodes),1);    %average tree cover per county, weighting for generating trade nodes
 for cc=1:length(orderccodes)
     avgtcov(cc)=mean(treecov(ca_adm0 == orderccodes(cc)));
@@ -121,11 +121,13 @@ nodestck=stock_0;
 % nodecptl=startvalue*stock_0;
 nodecptl=0;
 % nodename={'startnode'};
+nodetcov=0;     % node tree cover
+nodelsuit=0;
 for i=1:length(cntrycodes)
     icntry=find(ca_adm0 == orderccodes(i));
-    ipotnode=find(ismember(icntry,itreehigh)==1);   %place nodes based on treecover
+    ipotnode=find(ismember(icntry,itreepick)==1);   %place nodes based on treecover
     randnode=icntry(ipotnode(randperm(length(ipotnode),...
-        round(10*avgtcov./median(avgtcov)))));
+        round(10*avgtcov(i)./median(avgtcov)))));
     [nrow,ncol]=ind2sub(size(ca_adm0),randnode);
     [nlat,nlon]=pix2latlon(Rcagrid,nrow,ncol);
     nodeid=[nodeid length(nodeid)+(1:length(randnode))];
@@ -136,6 +138,8 @@ for i=1:length(cntrycodes)
     nodecode=[nodecode; orderccodes(i)*ones(length(randnode),1)];
     nodestck=[nodestck; zeros(length(randnode),1)];
     nodecptl=[nodecptl; zeros(length(randnode),1)];
+    nodetcov=[nodetcov; treecov(randnode)];
+    nodelsuit=[nodelsuit; LANDSUIT(randnode)];
     if i == 1
         snode=ones(length(randnode),1);
         tnode=(1+(1:length(randnode)))';
@@ -158,6 +162,8 @@ for i=1:length(cntrycodes)
         nodecode=[nodecode; 2];
         nodestck=[nodestck; 0];
         nodecptl=[nodecptl; 0];
+        nodetcov=[nodetcov; 0];
+        nodelsuit=[nodelsuit; 0];
         weights=ones(length(snode),1);
         flows=ones(length(snode),1);
         cpcty=0.1*stock_0*ones(length(snode),1);
@@ -166,8 +172,9 @@ for i=1:length(cntrycodes)
             'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
     end 
 end
-NodeTable=table(nodeid',noderow,nodecol,nodelat,nodelon,nodecode,nodestck,nodecptl,...
-    'VariableNames',{'ID','Row','Col','Lat','Lon','CountryCode','Stock','Capital'});
+NodeTable=table(nodeid',noderow,nodecol,nodelat,nodelon,nodecode,nodestck,...
+    nodecptl,nodetcov,nodelsuit,'VariableNames',{'ID','Row','Col','Lat',...
+    'Lon','CountryCode','Stock','Capital','TreeCover','LandSuit'});
 nnodes=height(NodeTable);
 ADJ=zeros(nnodes);      % adjacency matrix for trafficking network
 DIST=zeros(nnodes);     % geographic distance associated with edges
@@ -178,6 +185,8 @@ SLRISK=zeros(nnodes);     % dynamic perceived risk of seisure and loss per edge 
 INTRISK=zeros(nnodes,TMAX); % dynamic perceived risk of interdiction at each node
 CPCTY=zeros(nnodes);     % maximum flow possible between nodes
 CTRANS=zeros(nnodes);   % transportation costs between nodes
+RMTFAC=zeros(nnodes);   % ladnscape factor (remoteness) influencing S&L risk
+COASTFAC=zeros(nnodes);   % ladnscape factor (distance to coast) influencing S&L risk
 rentcap=0.3*ones(nnodes,1);     % proportion of value of shipments 'captured' by nodes
 
 slevent=zeros(nnodes,nnodes,TMAX);  % occurrence of S&L event
@@ -238,6 +247,21 @@ EdgeTable=table([EdgeTable.EndNodes; newedges' iendnode*ones(length(newedges),1)
     [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
     'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
 
+%%% Node Attributes
+% forest cover as proxy for remoteness; the higher the forest cover, the
+% more remote and lower the S&L risk. Start and end node unchanged.
+remotefac=[1; 2-NodeTable.TreeCover(NodeTable.TreeCover~=0)./...
+    max(NodeTable.TreeCover(NodeTable.TreeCover~=0)); 1];
+% proximity to the coast also increases risk of S&L event
+% Find node distance to coast
+lats_in=NodeTable.Lat;
+lons_in=NodeTable.Lon;
+[dists_min,lats_closest,lons_closest]=dist_from_coast(lats_in,...
+    lons_in);
+coastdist=dists_min./1000;  %convert to km
+NodeTable.CoastDist=coastdist';
+coastfac=2-NodeTable.CoastDist(:)./max(NodeTable.CoastDist(:));
+
 % Create adjacency matrix (without graph toolbox)
 ADJ(EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1),iendnode)=1;
 
@@ -252,7 +276,6 @@ for j=1:nnodes
     [d1km,d2km]=lldistkm(latlon1,latlon2);
     DIST(j,ADJ(j,:)==1)=d1km;
     
-    % Create transport cost matrix (USD kg km-1)
     idist_ground=(DIST(j,:)  >0 & DIST(j,:) <= 500);
     idist_air=(DIST(j,:) > 500);
     CTRANS(j,idist_ground)=ctrans_ground.*DIST(j,idist_ground);
@@ -268,10 +291,13 @@ for j=1:nnodes
 %         isender=find(ADJ(:,j) == 1);
         PRICE(j,TSTART)=mean(PRICE(isender,TSTART)+ADDVAL(isender,j));
     end
+    RMTFAC(j,ADJ(j,:)==1)=remotefac(ADJ(j,:)==1);
+    COASTFAC(j,ADJ(j,:)==1)=coastfac(ADJ(j,:)==1);
 end
 
 %%% Initialize Interdiction agent
-SLPROB(:,:,TSTART)=(DIST./max(max(DIST)));   % dynamic probability of seisure and loss at edges
+
+SLPROB(:,:,TSTART)=max(min(COASTFAC.*RMTFAC.*(DIST./max(max(DIST))),1),0);   % dynamic probability of seisure and loss at edges
 SLPROB(:,:,TSTART+1)=SLPROB(:,:,TSTART);
 INTRDPROB(:,TSTART+1)=slprob_0*ones(nnodes,1); % dynamic probability of interdiction at nodes
 
@@ -300,7 +326,7 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-for t=TSTART+1:TMAX
+for t=TSTART+1:20
     %%% S&L and interdiction events
     slevent(:,:,t)=(SLPROB(:,:,t) > rand(size(ADJ)));
     intrdevent(:,t)=(INTRDPROB(:,t) > rand(nnodes,1));
@@ -399,80 +425,80 @@ toc     % stop run timer
 % % %%% Visualization %%%
 % 
 % %%% Trafficking movie
-% writerObj = VideoWriter('trafficking_risk_v2.mp4','MPEG-4');
-% writerObj.FrameRate=2;
-% open(writerObj);
-% 
-% h1=figure;
-% set(h1,'Color','white','Visible','off')
-% 
-% for tt=TSTART+1:t
-%     geoshow(CAadm0,'FaceColor',[1 1 1])
-%     hold on
-% %     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,tt)/1000))
-%     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(stock_0/1000))
-%     fedge=find(FLOW(1,:,tt) > 0);
-%     for g=1:length(fedge)
-%         plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
-%     end
-%     plot(nodelon(2:nnodes),nodelat(2:nnodes),'b.','MarkerSize',3)
-%     xlabel('Longitude')
-%     ylabel('Latitude')
-%     title(sprintf('Timestep(month) = %d',tt-1))
-%     frame = getframe(h1);
-%     writeVideo(writerObj,frame);
-%     % set(gca,'nextplot','replacechildren');
-%     % set(gcf,'Renderer','zbuffer');
-%     % ax=gca;
-%     % movfilename='testmov.gif';
-%     % cmap=get(h1,'ColorMap');
-%     % ax.NextPlot='replaceChildren';
-%     % MOV(nnodes-1) = struct('cdata',[],'colormap',[]);
-%     for mm=1:nnodes-1
-%         if mm == 1
-%             clf
-%             geoshow(CAadm0,'FaceColor',[1 1 1])
-%             hold on
-%             for nn=1:nnodes
-%                 if MOV(nn,mm,tt) > 0
-%                     plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./1000))
-%                 else
-%                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
-%                 end
-%             end
-%             continue
-%         end
-%         if isempty(find(MOV(mm,mm-1,tt) > 0,1)) == 1
-%             continue
-%         else
-%             clf
-%             geoshow(CAadm0,'FaceColor',[1 1 1])
-%             hold on
-%             for nn=1:nnodes
-%                 if MOV(nn,mm,tt) > 0
-%                     plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./1000))
-%                 else
-%                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
-%                 end
-%             end
-%             fedge=find(FLOW(mm,:,tt) > 0);
-%             if isempty(find(fedge,1)) == 1
-%                 plot(nodelon(mm),nodelat(mm),'kx','MarkerSize',ceil(MOV(mm,mm-1,tt)./1000))
-%             else
-%                 for g=1:length(fedge)
-%                     plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
-%                 end
-%             end
-%         end
-%         xlabel('Longitude')
-%         ylabel('Latitude')
-%         title(sprintf('Timestep(month) = %d',tt-1))
-%         frame = getframe(h1);
-%         writeVideo(writerObj,frame);
-%     end
-%     clf
-% end
-% close(writerObj);
+writerObj = VideoWriter('trafficking_risk_v2.mp4','MPEG-4');
+writerObj.FrameRate=2;
+open(writerObj);
+
+h1=figure;
+set(h1,'Color','white','Visible','off')
+
+for tt=TSTART+1:t
+    geoshow(CAadm0,'FaceColor',[1 1 1])
+    hold on
+%     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,tt)/1000))
+    plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(stock_0/1000))
+    fedge=find(FLOW(1,:,tt) > 0);
+    for g=1:length(fedge)
+        plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
+    end
+    plot(nodelon(2:nnodes),nodelat(2:nnodes),'b.','MarkerSize',3)
+    xlabel('Longitude')
+    ylabel('Latitude')
+    title(sprintf('Timestep(month) = %d',tt-1))
+    frame = getframe(h1);
+    writeVideo(writerObj,frame);
+    % set(gca,'nextplot','replacechildren');
+    % set(gcf,'Renderer','zbuffer');
+    % ax=gca;
+    % movfilename='testmov.gif';
+    % cmap=get(h1,'ColorMap');
+    % ax.NextPlot='replaceChildren';
+    % MOV(nnodes-1) = struct('cdata',[],'colormap',[]);
+    for mm=1:nnodes-1
+        if mm == 1
+            clf
+            geoshow(CAadm0,'FaceColor',[1 1 1])
+            hold on
+            for nn=1:nnodes
+                if MOV(nn,mm,tt) > 0
+                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./1000))
+                else
+                    plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
+                end
+            end
+            continue
+        end
+        if isempty(find(MOV(mm,mm-1,tt) > 0,1)) == 1
+            continue
+        else
+            clf
+            geoshow(CAadm0,'FaceColor',[1 1 1])
+            hold on
+            for nn=1:nnodes
+                if MOV(nn,mm,tt) > 0
+                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./1000))
+                else
+                    plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
+                end
+            end
+            fedge=find(FLOW(mm,:,tt) > 0);
+            if isempty(find(fedge,1)) == 1
+                plot(nodelon(mm),nodelat(mm),'kx','MarkerSize',ceil(MOV(mm,mm-1,tt)./1000))
+            else
+                for g=1:length(fedge)
+                    plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
+                end
+            end
+        end
+        xlabel('Longitude')
+        ylabel('Latitude')
+        title(sprintf('Timestep(month) = %d',tt-1))
+        frame = getframe(h1);
+        writeVideo(writerObj,frame);
+    end
+    clf
+end
+close(writerObj);
 % 
 % % im = frame2im(frame);
 % % [A,cmap] = rgb2ind(im,256);
@@ -514,5 +540,13 @@ toc     % stop run timer
 % %         plot(nodelon(i),nodelat(i),'k.','MarkerSize',1)
 % %     end
 % % end
+% % Plot some node attribute
+% figure
+% geoshow(CAadm0,'FaceColor',[1 1 1])
+% hold on
+% for i=1:length(nodelat)
+%         plot(nodelon(i),nodelat(i),'r.','MarkerSize',round(NodeTable.CoastDist(i)/10))
+% end
+
 % %%% Command to use
 % % digraph, maxflow, nearest
