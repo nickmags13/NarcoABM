@@ -80,6 +80,7 @@ LANDSUIT(itreecov)=treecov(itreecov)./max(treecov(itreecov));   % for now, just 
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %%% Interdiction Agent %%%
 slprob_0=0.001;     % baseline probability of seisure and loss event
+slcpcty=30;         % assumed number of S&L events that can be carried out per time step
 delta_sl=0.05;      % reinforcement learning rate for S&L vents (i.e., weight on new information)
 
 %%% Network Agent %%%
@@ -87,8 +88,8 @@ stock_0=100000;     %initial cocaine stock at producer node
 startvalue=385; %producer price, $385/kg
 deltavalue=8;   %added value for distance traveled $8/kilo/km
 nodeloss=0;     % amount of cocaine that is normally lost (i.e., non-interdiction) at each node
-ctrans_ground=3.5;  % transportation costs (kg/km) over-ground
-ctrans_air=2;     % transportation costs (kg/km) via plane or boat
+ctrans_inland=3.5;  % transportation costs (kg/km) over-ground
+ctrans_coast=2;     % transportation costs (kg/km) via plane or boat
 % Set-up producer and end supply nodes
 strow=2700;
 stcol=3600;
@@ -185,8 +186,8 @@ SLRISK=zeros(nnodes);     % dynamic perceived risk of seisure and loss per edge 
 INTRISK=zeros(nnodes,TMAX); % dynamic perceived risk of interdiction at each node
 CPCTY=zeros(nnodes);     % maximum flow possible between nodes
 CTRANS=zeros(nnodes);   % transportation costs between nodes
-RMTFAC=zeros(nnodes);   % ladnscape factor (remoteness) influencing S&L risk
-COASTFAC=zeros(nnodes);   % ladnscape factor (distance to coast) influencing S&L risk
+RMTFAC=zeros(nnodes);   % landscape factor (remoteness) influencing S&L risk
+COASTFAC=zeros(nnodes);   % landscape factor (distance to coast) influencing S&L risk
 rentcap=0.3*ones(nnodes,1);     % proportion of value of shipments 'captured' by nodes
 
 slevent=zeros(nnodes,nnodes,TMAX);  % occurrence of S&L event
@@ -211,7 +212,7 @@ for k=1:nnodes-1
         newedges=newedges(~nodechk);
         weights=ones(length(newedges),1);
         flows=ones(length(newedges),1);
-        cpcty=0.1*stock_0*ones(length(newedges),1);
+        cpcty=stock_0*ones(length(newedges),1);
         EdgeTable=table([EdgeTable.EndNodes; k*ones(length(newedges),1) newedges'],...
             [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
             'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -264,7 +265,7 @@ coastfac=2-NodeTable.CoastDist(:)./max(NodeTable.CoastDist(:));
 
 % Create adjacency matrix (without graph toolbox)
 ADJ(EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1),iendnode)=1;
-
+iedge=find(ADJ == 1);
 for j=1:nnodes
     %Create weight and capacity matrices
     WGHT(j,ADJ(j,:)==1)=EdgeTable.Weight(ADJ(j,:)==1);
@@ -275,11 +276,6 @@ for j=1:nnodes
     latlon1=repmat([NodeTable.Lat(j) NodeTable.Lon(j)],length(latlon2(:,1)),1);
     [d1km,d2km]=lldistkm(latlon1,latlon2);
     DIST(j,ADJ(j,:)==1)=d1km;
-    
-    idist_ground=(DIST(j,:)  >0 & DIST(j,:) <= 500);
-    idist_air=(DIST(j,:) > 500);
-    CTRANS(j,idist_ground)=ctrans_ground.*DIST(j,idist_ground);
-    CTRANS(j,idist_air)=ctrans_air.*DIST(j,idist_air);
     
     %Create added value matrix (USD) and price per node
     ADDVAL(j,ADJ(j,:)==1)=deltavalue.*DIST(j,ADJ(j,:)==1);
@@ -293,7 +289,29 @@ for j=1:nnodes
     end
     RMTFAC(j,ADJ(j,:)==1)=remotefac(ADJ(j,:)==1);
     COASTFAC(j,ADJ(j,:)==1)=coastfac(ADJ(j,:)==1);
+    
+    % Transportation costs
+    idist_ground=(DIST(j,:)  >0 & DIST(j,:) <= 500);
+    idist_air=(DIST(j,:) > 500);
+    % CTRANS(j,idist_ground)=ctrans_ground.*DIST(j,idist_ground);
+    % CTRANS(j,idist_air)=ctrans_air.*DIST(j,idist_air);
+    if NodeTable.CoastDist(j) < 20
+        ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
+        idist_coast=(NodeTable.CoastDist(ireceiver) < 20);
+        idist_inland=(NodeTable.CoastDist(ireceiver) >= 20);
+        CTRANS(j,ireceiver(idist_coast))=ctrans_coast.*...
+            COASTFAC(j,ireceiver(idist_coast)).*DIST(j,ireceiver(idist_coast));
+        CTRANS(j,ireceiver(idist_inland))=ctrans_inland.*...
+            RMTFAC(j,ireceiver(idist_inland)).*DIST(j,ireceiver(idist_inland));
+    else
+        ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
+        CTRANS(j,ireceiver)=ctrans_inland.*RMTFAC(j,ireceiver).*...
+            DIST(j,ireceiver);
+    end
+%     CTRANS(j,idist_ground)=ctrans_inland.*RMTFAC(j,idist_ground).*DIST(j,idist_ground);
+%     CTRANS(j,idist_air)=ctrans_coast.*COASTFAC(j,idist_air).*DIST(j,idist_air);
 end
+
 
 %%% Initialize Interdiction agent
 
@@ -307,7 +325,8 @@ TOTCPTL(:,TSTART)=NodeTable.Capital(:);
 PRICE(:,TSTART+1)=PRICE(:,TSTART);
 
 %%% Set-up node and network risk perceptions
-SLRISK(:,:)=(DIST./max(max(DIST)));
+% SLRISK(:,:)=(DIST./max(max(DIST)));
+SLRISK(:,:)=SLPROB(:,:,TSTART);
 INTRISK(:,TSTART:TSTART+1)=slprob_0.*ones(nnodes,2);
 
 % subjective risk perception with time distortion
@@ -326,9 +345,11 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-for t=TSTART+1:20
+for t=TSTART+1:10
     %%% S&L and interdiction events
-    slevent(:,:,t)=(SLPROB(:,:,t) > rand(size(ADJ)));
+    rndslevents=ones(size(ADJ));
+    rndslevents(iedge(randperm(length(iedge),slcpcty)))=rand(slcpcty,1);
+    slevent(:,:,t)=(SLPROB(:,:,t) > rndslevents);
     intrdevent(:,t)=(INTRDPROB(:,t) > rand(nnodes,1));
     MOV(:,1,t)=NodeTable.Stock(:);
     
@@ -358,14 +379,11 @@ for t=TSTART+1:20
              totstock,totcpcty);
          inei=inei(neipick);
          
-%          WGHT(n,inei)=SLRISK(n,inei).*ADDVAL(n,inei) ... something like
-%          that
-%          if length(inei) >  10
-%              inei=randperm(length(inei),10);
-%          end
+         % weight according to salience value fuction
+         WGHT(n,inei)=1+(neivalue./sum(neivalue)-1/length(inei));
 
          %%% !!! Put checks in to make sure buying node has enough capital
-         FLOW(n,inei,t)=min(WGHT(n,inei).*floor(STOCK(n,t)/length(inei)),CPCTY(n,inei));
+         FLOW(n,inei,t)=min(floor(WGHT(n,inei).*(STOCK(n,t)/length(inei))),CPCTY(n,inei));
          % Check for S%L event
          if isempty(find(ismember(find(slevent(n,:,t)),inei),1)) == 0
              isl=(slevent(n,inei,t)==1);
@@ -425,7 +443,7 @@ toc     % stop run timer
 % % %%% Visualization %%%
 % 
 % %%% Trafficking movie
-writerObj = VideoWriter('trafficking_risk_v2.mp4','MPEG-4');
+writerObj = VideoWriter('trafficking_risk_v3short.mp4','MPEG-4');
 writerObj.FrameRate=2;
 open(writerObj);
 

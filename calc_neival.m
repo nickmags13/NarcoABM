@@ -45,7 +45,8 @@ for i=1:length(c_trans)
 end
 [ineivalue,ineipick]=max([valuex valuey],[],2);
 iroute=find(ineipick == 1);
-rankroute=sortrows([ineivalue(iroute) totcpcty(iroute)' q_node(iroute)' iroute],-1);  %rank trafficking routes by salient payoff
+rankroute=sortrows([ineivalue(iroute) min(totstock/length(iroute),...
+    totcpcty(iroute))' q_node(iroute)' iroute],-1);  %rank trafficking routes by salient payoff
 % rankroute=sortrows([ineivalue(iroute) p_sl(iroute)' q_node(iroute)' iroute],2);  %rank trafficking routes by risk level
 icut=find(cumsum(rankroute(:,2)) <= totstock);  % select route based on total capcity
 neipick=rankroute(icut,4);
