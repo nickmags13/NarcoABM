@@ -27,9 +27,9 @@ for i=1:length(c_trans)
     ypay_noevent(i)=mean(pay_noevent(iset ~= i));   % payoff for all other routes with no S&L event
     ypay_event(i)=mean(pay_event(iset ~= i));       % payoff for all other routes with S&L event
     value_noevent(i)=abs(ypay_noevent(i)-xpay_noevent(i))/...
-        (abs(ypay_noevent(i))+abs(xpay_noevent(i)));
+        (abs(ypay_noevent(i))+abs(xpay_noevent(i))+1);
     value_event(i)=abs(ypay_event(i)-xpay_event(i))/...
-        (abs(ypay_event(i))+abs(xpay_event(i)));
+        (abs(ypay_event(i))+abs(xpay_event(i))+1);
     
     [~,ipntlval]=sort([value_noevent(i) value_event(i)],2,'descend');
     ival_noevent(i)=ipntlval(1);
@@ -45,6 +45,9 @@ for i=1:length(c_trans)
 end
 [ineivalue,ineipick]=max([valuex valuey],[],2);
 iroute=find(ineipick == 1);
+if isempty(find(iroute,1)) == 1
+    [~,iroute]=max(ineivalue,[],1);
+end
 rankroute=sortrows([ineivalue(iroute) min(totstock/length(iroute),...
     totcpcty(iroute))' q_node(iroute)' iroute],-1);  %rank trafficking routes by salient payoff
 % rankroute=sortrows([ineivalue(iroute) p_sl(iroute)' q_node(iroute)' iroute],2);  %rank trafficking routes by risk level

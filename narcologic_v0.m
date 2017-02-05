@@ -79,7 +79,7 @@ LANDSUIT(itreecov)=treecov(itreecov)./max(treecov(itreecov));   % for now, just 
 %@@@@@@@@@@ Agent Attributes @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %%% Interdiction Agent %%%
-slprob_0=0.001;     % baseline probability of seisure and loss event
+slprob_0=0.02;     % baseline probability of seisure and loss event
 slcpcty=30;         % assumed number of S&L events that can be carried out per time step
 delta_sl=0.05;      % reinforcement learning rate for S&L vents (i.e., weight on new information)
 
@@ -90,6 +90,8 @@ deltavalue=8;   %added value for distance traveled $8/kilo/km
 nodeloss=0;     % amount of cocaine that is normally lost (i.e., non-interdiction) at each node
 ctrans_inland=3.5;  % transportation costs (kg/km) over-ground
 ctrans_coast=2;     % transportation costs (kg/km) via plane or boat
+delta_rt=0.05;      % reinforcement learning rate for network agent (i.e., weight on new information for successful routes)
+
 % Set-up producer and end supply nodes
 strow=2700;
 stcol=3600;
@@ -146,7 +148,7 @@ for i=1:length(cntrycodes)
         tnode=(1+(1:length(randnode)))';
         weights=ones(length(randnode),1);
         flows=ones(length(randnode),1);
-        cpcty=0.1*stock_0*ones(length(randnode),1); %currently all the same capacity, but could introduce heterogeneity
+        cpcty=stock_0*ones(length(randnode),1); %currently all the same capacity, but could introduce heterogeneity
         EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
             {'EndNodes' 'Weight' 'Flows' 'Capacity'});
     end
@@ -167,7 +169,7 @@ for i=1:length(cntrycodes)
         nodelsuit=[nodelsuit; 0];
         weights=ones(length(snode),1);
         flows=ones(length(snode),1);
-        cpcty=0.1*stock_0*ones(length(snode),1);
+        cpcty=stock_0*ones(length(snode),1);
         EdgeTable=table([EdgeTable.EndNodes; snode tnode],[EdgeTable.Weight; ...
             weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
             'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -204,6 +206,8 @@ TOTCPTL=zeros(nnodes,TMAX);     % total value of cocaine at each node
 ICPTL=zeros(nnodes,TMAX);       % dynamic illicit capital accumulated at each node
 LCPTL=zeros(nnodes,TMAX);       % dynamic legitimate capital accumulated at each node
 LEAK=zeros(nnodes,TMAX);        % dynamic amount of cocaine leaked at each node
+routepref=zeros(nnodes,TMAX);   % weighting by network agent of successful routes
+activeroute=cell(nnodes,TMAX);  % track active routes
 
 for k=1:nnodes-1
     if k == 1
@@ -227,7 +231,7 @@ for k=1:nnodes-1
         newedges=newedges(~nodechk);
         weights=ones(length(newedges),1);
         flows=ones(length(newedges),1);
-        cpcty=0.1*stock_0*ones(length(newedges),1);
+        cpcty=stock_0*ones(length(newedges),1);
         EdgeTable=table([EdgeTable.EndNodes; k*ones(length(newedges),1) newedges'],...
             [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
             'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -243,7 +247,7 @@ nodechk=ismember(newedges,EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1
 newedges=newedges(~nodechk);
 weights=ones(length(newedges),1);
 flows=ones(length(newedges),1);
-cpcty=0.05*stock_0*ones(length(newedges),1);
+cpcty=stock_0*ones(length(newedges),1);
 EdgeTable=table([EdgeTable.EndNodes; newedges' iendnode*ones(length(newedges),1)],...
     [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
     'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -334,6 +338,7 @@ twght=timewght_0*ones(nnodes,1);    % time weighting for dynamic, subjective per
     
 %%% Set-up trafficking netowrk benefit-cost logic  %%%%%%%%%%%%
 ltcoeff=ones(nnodes,1);
+routepref(:,TSTART:TSTART+1)=ones(nnodes,2);
 
 %%% Define Node Investment Choice Sets
 
@@ -354,7 +359,6 @@ for t=TSTART+1:10
     MOV(:,1,t)=NodeTable.Stock(:);
     
     for n=1:nnodes-1 %exclude end node
-       
       %%%%%  Route cocaine shipmments %%%%%
       STOCK(n,t)=STOCK(n,t-1)+STOCK(n,t);
       TOTCPTL(n,t)=TOTCPTL(n,t-1)+TOTCPTL(n,t);
@@ -378,9 +382,15 @@ for t=TSTART+1:10
          [neipick,neivalue]=calc_neival(c_trans,p_sl,y_node,q_node,lccf,...
              totstock,totcpcty);
          inei=inei(neipick);
+         activeroute(n,t)=mat2cell(inei',length(inei),1);
          
          % weight according to salience value fuction
-         WGHT(n,inei)=1+(neivalue./sum(neivalue)-1/length(inei));
+         if isempty(find(neivalue > 0,1)) == 1
+             WGHT(n,inei)=1;
+         else
+             WGHT(n,inei)=1+(abs(routepref(inei,t).*neivalue)./...
+                 sum(abs(routepref(inei,t).*neivalue))-1/length(inei));
+         end
 
          %%% !!! Put checks in to make sure buying node has enough capital
          FLOW(n,inei,t)=min(floor(WGHT(n,inei).*(STOCK(n,t)/length(inei))),CPCTY(n,inei));
@@ -433,6 +443,19 @@ for t=TSTART+1:10
       %%% Make trafficking movie
       MOV(:,n,t)=STOCK(:,t);      % Capture stock data after each node iteration
     end
+    
+    % Reinforcement learning for successful routes
+    iactivenode=find(OUTFLOW(2:nnodes-1,t) > 0)+1;
+    avgflow=STOCK(iendnode,t)/length(iactivenode);
+    for nn=2:nnodes-1
+        if isempty(activeroute{nn,t}) == 1
+            continue
+        else
+            rtwght=mean(FLOW(nn,activeroute{nn,t},t)./avgflow);
+            routepref(nn,t+1)=(1-delta_rt).*routepref(:,t)+delta_rt.*rtwght;
+        end
+    end
+
     STOCK(1,t+1)=stock_0;    %additional production to enter network next time step
     STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step
     NodeTable.Stock(1)=stock_0;
@@ -565,6 +588,11 @@ close(writerObj);
 % for i=1:length(nodelat)
 %         plot(nodelon(i),nodelat(i),'r.','MarkerSize',round(NodeTable.CoastDist(i)/10))
 % end
+% %%% Plot time series of flows and S&L
+% plot(1:t,STOCK(:,1:t),'-')
+% hold on
+% sltot=sum(sum(slsuccess(:,:,1:t),1));
+% plot(1:t,reshape(sltot,1,10),'-')
 
 % %%% Command to use
 % % digraph, maxflow, nearest
