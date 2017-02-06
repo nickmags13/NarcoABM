@@ -391,7 +391,7 @@ for t=TSTART+1:10
              WGHT(n,inei)=1+(abs(routepref(inei,t).*neivalue)./...
                  sum(abs(routepref(inei,t).*neivalue))-1/length(inei));
          end
-         
+
          %%% !!! Put checks in to make sure buying node has enough capital
          FLOW(n,inei,t)=min(floor(WGHT(n,inei).*(STOCK(n,t)/length(inei))),CPCTY(n,inei));
          % Check for S%L event
@@ -404,8 +404,7 @@ for t=TSTART+1:10
              STOCK(inei,t)=STOCK(inei,t)+FLOW(n,inei,t)';
              TOTCPTL(n,t)=TOTCPTL(n,t)+sum(FLOW(n,inei,t).*ADDVAL(n,inei));
              TOTCPTL(inei,t)=TOTCPTL(inei,t-1)-(FLOW(n,inei,t)'.*PRICE(inei,t));
-             ICPTL(n,t)=rentcap(n)*sum(FLOW(n,inei).*ADDVAL(n,inei));
-             
+             ICPTL(n,t)=rentcap(n)*sum(FLOW(n,inei).*ADDVAL(n,inei)); 
          else
              OUTFLOW(n,t)=sum(FLOW(n,inei,t));
              STOCK(n,t)=STOCK(n,t)-OUTFLOW(n,t);
@@ -449,14 +448,14 @@ for t=TSTART+1:10
     avgflow=STOCK(iendnode,t)/length(iactivenode);
     for nn=2:nnodes-1
         if isempty(activeroute{nn,t}) == 1
-            continue
+            routepref(nn,t+1)=(1-delta_rt).*routepref(nn,t-1);
         else
             rtwght=mean(FLOW(nn,activeroute{nn,t},t)./avgflow);
             routepref(nn,t+1)=(1-delta_rt).*routepref(nn,t)+delta_rt.*rtwght;
         end
     end
     routepref(iendnode,t+1)=1.1*max(routepref(:,t+1));
-    
+
     STOCK(1,t+1)=stock_0;    %additional production to enter network next time step
     STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step
     NodeTable.Stock(1)=stock_0;
@@ -594,6 +593,11 @@ close(writerObj);
 % hold on
 % sltot=sum(sum(slsuccess(:,:,1:t),1));
 % plot(1:t,reshape(sltot,1,10),'-')
+
+%%%%%% Diagnostics %%%%%%%
+slrecord=sum(slsuccess(:,:,1:t),3);
+[slr,slc]=ind2sub(size(slrecord),find(slrecord > 0));
+
 
 % %%% Command to use
 % % digraph, maxflow, nearest
