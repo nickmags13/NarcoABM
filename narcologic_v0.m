@@ -391,7 +391,7 @@ for t=TSTART+1:10
              WGHT(n,inei)=1+(abs(routepref(inei,t).*neivalue)./...
                  sum(abs(routepref(inei,t).*neivalue))-1/length(inei));
          end
-
+         
          %%% !!! Put checks in to make sure buying node has enough capital
          FLOW(n,inei,t)=min(floor(WGHT(n,inei).*(STOCK(n,t)/length(inei))),CPCTY(n,inei));
          % Check for S%L event
@@ -452,10 +452,11 @@ for t=TSTART+1:10
             continue
         else
             rtwght=mean(FLOW(nn,activeroute{nn,t},t)./avgflow);
-            routepref(nn,t+1)=(1-delta_rt).*routepref(:,t)+delta_rt.*rtwght;
+            routepref(nn,t+1)=(1-delta_rt).*routepref(nn,t)+delta_rt.*rtwght;
         end
     end
-
+    routepref(iendnode,t+1)=1.1*max(routepref(:,t+1));
+    
     STOCK(1,t+1)=stock_0;    %additional production to enter network next time step
     STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step
     NodeTable.Stock(1)=stock_0;
@@ -466,7 +467,7 @@ toc     % stop run timer
 % % %%% Visualization %%%
 % 
 % %%% Trafficking movie
-writerObj = VideoWriter('trafficking_risk_v3short.mp4','MPEG-4');
+writerObj = VideoWriter('trafficking_risk_v4short.mp4','MPEG-4');
 writerObj.FrameRate=2;
 open(writerObj);
 
