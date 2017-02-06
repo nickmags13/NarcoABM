@@ -21,9 +21,10 @@ iset=1:length(c_trans);
 for i=1:length(c_trans)
     pay_noevent(i)=y_node(i)*q_node(i)-c_trans(i)*q_node(i);  % payoff with no S&L event
     pay_event(i)=y_node(i)*q_node(i)-c_trans(i)*q_node(i)-y_node(i)*q_node(i);    % payoff with S&L event
-    
     xpay_noevent(i)=pay_noevent(i); % payoff for route A with no S&L event
-    xpay_event(i)=pay_event(i);     % payoff for route A with S&L event
+    xpay_event(i)=pay_event(i); % payoff for route A with S&L event
+end
+for i=1:length(c_trans)
     ypay_noevent(i)=mean(pay_noevent(iset ~= i));   % payoff for all other routes with no S&L event
     ypay_event(i)=mean(pay_event(iset ~= i));       % payoff for all other routes with S&L event
     value_noevent(i)=abs(ypay_noevent(i)-xpay_noevent(i))/...
