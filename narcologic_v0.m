@@ -90,7 +90,10 @@ deltavalue=8;   %added value for distance traveled $8/kilo/km
 nodeloss=0;     % amount of cocaine that is normally lost (i.e., non-interdiction) at each node
 ctrans_inland=3.5;  % transportation costs (kg/km) over-ground
 ctrans_coast=2;     % transportation costs (kg/km) via plane or boat
-delta_rt=0.05;      % reinforcement learning rate for network agent (i.e., weight on new information for successful routes)
+delta_rt=0.5;       % reinforcement learning rate for network agent 
+                    %(i.e., weight on new information for successful routes)
+                    % note: faster learning rate than for interdiction
+                    % agent
 
 % Set-up producer and end supply nodes
 strow=2700;
@@ -184,7 +187,7 @@ DIST=zeros(nnodes);     % geographic distance associated with edges
 ADDVAL=zeros(nnodes);    % added value per edge in trafficking network
 WGHT=zeros(nnodes);     % dynamic weighting of edges
 FLOW=zeros(nnodes,nnodes,TMAX);     % dynamic flows of cocaine between nodes
-SLRISK=zeros(nnodes);     % dynamic perceived risk of seisure and loss per edge by node agent
+SLRISK=slprob_0*ones(nnodes);     % dynamic perceived risk of seisure and loss per edge by node agent
 INTRISK=zeros(nnodes,TMAX); % dynamic perceived risk of interdiction at each node
 CPCTY=zeros(nnodes);     % maximum flow possible between nodes
 CTRANS=zeros(nnodes);   % transportation costs between nodes
@@ -330,8 +333,8 @@ PRICE(:,TSTART+1)=PRICE(:,TSTART);
 
 %%% Set-up node and network risk perceptions
 % SLRISK(:,:)=(DIST./max(max(DIST)));
-SLRISK(:,:)=SLPROB(:,:,TSTART);
-INTRISK(:,TSTART:TSTART+1)=slprob_0.*ones(nnodes,2);
+% SLRISK(:,:)=SLPROB(:,:,TSTART);
+% INTRISK(:,TSTART:TSTART+1)=slprob_0.*ones(nnodes,2);
 
 % subjective risk perception with time distortion
 twght=timewght_0*ones(nnodes,1);    % time weighting for dynamic, subjective perceived risk of interdiction event
@@ -351,10 +354,21 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 for t=TSTART+1:10
-    %%% S&L and interdiction events
-    rndslevents=ones(size(ADJ));
-    rndslevents(iedge(randperm(length(iedge),slcpcty)))=rand(slcpcty,1);
-    slevent(:,:,t)=(SLPROB(:,:,t) > rndslevents);
+    %%%%%% S&L and interdiction events %%%%%%
+%     %%% Fully random S&L events
+%     rndslevents=ones(size(ADJ));
+%     rndslevents(iedge(randperm(length(iedge),slcpcty)))=rand(slcpcty,1);
+%     slevent(:,:,t)=(SLPROB(:,:,t) > rndslevents);
+    %%% Random number of events, selection of highest probability nodes (in addition to p=1) 
+    rndslevents=ceil(slcpcty*rand(1));
+    subslevent=slevent(:,:,t);
+    subslprob=reshape(SLPROB(:,:,t),nnodes*nnodes,1);
+    subslprob=subslprob(subslprob~=1);
+    subslprobsort=sort(subslprob,'descend');
+    islevent=find(ismember(SLPROB(:,:,t),subslprobsort(1:rndslevents))==1);
+    subslevent(islevent)=1;
+    slevent(:,:,t)=subslevent;
+    slevent(:,:,t)=(SLPROB(:,:,t) == 1);
     intrdevent(:,t)=(INTRDPROB(:,t) > rand(nnodes,1));
     MOV(:,1,t)=NodeTable.Stock(:);
     
@@ -413,35 +427,42 @@ for t=TSTART+1:10
              TOTCPTL(inei,t)=TOTCPTL(inei,t-1)-(FLOW(n,inei,t)'.*PRICE(inei,t));
              ICPTL(n,t)=rentcap(n)*sum(FLOW(n,inei).*ADDVAL(n,inei));
          end
-         %!!!!!!!!!!!
+          %%%% Update perceived risk in response to S&L and Interdiction events
+      timeweight=twght(n);
+      % identify neighbors in network (without network toolbox)
+%       bcknei=EdgeTable.EndNodes(EdgeTable.EndNodes(:,2) == n,1)';
+      fwdnei=inei;
+      if t == TSTART+1
+%           sloccur=slevent(n,[bcknei fwdnei],TSTART+1:t);
+          sloccur=slevent(n,fwdnei,TSTART+1:t);
+      elseif t > TSTART+1 && length(fwdnei) == 1
+%           sloccur=squeeze(slevent(n,[bcknei fwdnei],TSTART+1:t))';
+          sloccur=squeeze(slevent(n,fwdnei,TSTART+1:t));
+      else
+          sloccur=squeeze(slevent(n,fwdnei,TSTART+1:t))';
+      end
+%       intrdoccur=intrdevent([bcknei fwdnei],TSTART+1:t);
+      intrdoccur=intrdevent(fwdnei,TSTART+1:t);
+      [sl_risk,intrd_risk,slevnt,intrdevnt,tmevnt]=calc_intrisk(sloccur,...
+          intrdoccur,t,TSTART,alpharisk,betarisk,timeweight);
+%       SLRISK(n,[bcknei fwdnei])=sl_risk;
+      SLRISK(n,fwdnei)=sl_risk;
+      INTRISK(n,t+1)=mean(intrd_risk);  %node-specific risk is the average of neighbor risks
+      
+      %!!!!!!!!!!!
 %          ICPTL(n,t)=ICPTL(n,t)-OUTFLOW(n,t)*VALUE(  %account for value retained at node
 
          NodeTable.Stock(:)=STOCK(:,t);
          NodeTable.Capital(:)=TOTCPTL(:,t);
       end
 
-      %%%% Update perceived risk in response to S&L and Interdiction events
-      timeweight=twght(n);
-      % identify neighbors in network (without network toolbox)
-      bcknei=EdgeTable.EndNodes(EdgeTable.EndNodes(:,2) == n,1)';
-      fwdnei=inei;
-      sloccur=reshape(slevent(n,[bcknei fwdnei],TSTART+1:t),length(TSTART+1:t),...
-          length([bcknei fwdnei]));
-      intrdoccur=intrdevent([bcknei fwdnei],TSTART+1:t);
-      [sl_risk,intrd_risk,slevnt,intrdevnt,tmevnt]=calc_intrisk(sloccur,...
-          intrdoccur,t,TSTART,alpharisk,betarisk,timeweight);
-      SLRISK(n,[bcknei fwdnei])=sl_risk;
-      INTRISK(n,t+1)=mean(intrd_risk);  %node-specific risk is the average of neighbor risks
-      
-      %%% Updating interdiction event probability
-      SLPROB(:,:,t+1)=max((1-delta_sl).*SLPROB(:,:,t)+delta_sl.*...
-          (slsuccess(:,:,t)./max(max(slsuccess(:,:,t)))),SLPROB(:,:,TSTART));
-      INTRDPROB(:,t+1)=INTRDPROB(:,t);
-      
-      
       %%% Make trafficking movie
       MOV(:,n,t)=STOCK(:,t);      % Capture stock data after each node iteration
     end
+    %%% Updating interdiction event probability
+    SLPROB(:,:,t+1)=max((1-delta_sl).*SLPROB(:,:,t)+delta_sl.*...
+        (slsuccess(:,:,t)./max(max(slsuccess(:,:,t)))),SLPROB(:,:,TSTART));
+    INTRDPROB(:,t+1)=INTRDPROB(:,t);
     
     % Reinforcement learning for successful routes
     iactivenode=find(OUTFLOW(2:nnodes-1,t) > 0)+1;
@@ -462,7 +483,7 @@ for t=TSTART+1:10
     NodeTable.Stock(nnodes)=0;
 end
 toc     % stop run timer
-% %%
+%%
 % % %%% Visualization %%%
 % 
 % %%% Trafficking movie
