@@ -81,8 +81,8 @@ LANDSUIT(itreecov)=treecov(itreecov)./max(treecov(itreecov));   % for now, just 
 %%% Interdiction Agent %%%
 slprob_0=0.02;     % baseline probability of seisure and loss event
 slcpcty=30;         % assumed number of S&L events that can be carried out per time step
-delta_sl=0.05;      % reinforcement learning rate for S&L vents (i.e., weight on new information)
-
+delta_sl=0.5;      % reinforcement learning rate for S&L vents (i.e., weight on new information)
+losstol=0.9;        % tolerance threshold for loss due to S&L, triggers route fragmentation
 %%% Network Agent %%%
 stock_0=100000;     %initial cocaine stock at producer node
 startvalue=385; %producer price, $385/kg
@@ -107,9 +107,11 @@ pend=geopoint(endlat,endlon,'NodeName',{'End Node'});
 
 %%% Nodes agents %%%
 % perceived risk model
-alpharisk=2;  %baseline
+alpharisk=0.001;  %baseline
 timewght_0=0.91;     %time discounting for subjective risk perception (Gallagher, 2014), range[0,1.05]
-betarisk=alpharisk/slprob_0-alpharisk;
+% betarisk=alpharisk/slprob_0-alpharisk;
+betarisk=2.5;
+
 
 % cntrycpcty=[0.1 0.1 0.1 0.1 0.1 0.1 0.1];   %country-specific, per node trafficking capacity
 
@@ -353,7 +355,7 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-for t=TSTART+1:10
+for t=TSTART+1:20
     %%%%%% S&L and interdiction events %%%%%%
 %     %%% Fully random S&L events
 %     rndslevents=ones(size(ADJ));
@@ -363,12 +365,13 @@ for t=TSTART+1:10
     rndslevents=ceil(slcpcty*rand(1));
     subslevent=slevent(:,:,t);
     subslprob=reshape(SLPROB(:,:,t),nnodes*nnodes,1);
-    subslprob=subslprob(subslprob~=1);
-    subslprobsort=sort(subslprob,'descend');
-    islevent=find(ismember(SLPROB(:,:,t),subslprobsort(1:rndslevents))==1);
+%     subslprob=subslprob(subslprob~=1);
+    [subslprobsort,isubslprobsort]=sort(subslprob,'descend');
+    islevent=isubslprobsort(1:length(find(subslprob==1))+rndslevents);
+%     islevent=find(ismember(SLPROB(:,:,t),subslprobsort(1:rndslevents))==1);
     subslevent(islevent)=1;
     slevent(:,:,t)=subslevent;
-    slevent(:,:,t)=(SLPROB(:,:,t) == 1);
+%     slevent(:,:,t)=(SLPROB(:,:,t) == 1);
     intrdevent(:,t)=(INTRDPROB(:,t) > rand(nnodes,1));
     MOV(:,1,t)=NodeTable.Stock(:);
     
@@ -488,7 +491,7 @@ toc     % stop run timer
 % 
 % %%% Trafficking movie
 writerObj = VideoWriter('trafficking_risk_v4short.mp4','MPEG-4');
-writerObj.FrameRate=2;
+writerObj.FrameRate=5;
 open(writerObj);
 
 h1=figure;
@@ -497,12 +500,30 @@ set(h1,'Color','white','Visible','off')
 for tt=TSTART+1:t
     geoshow(CAadm0,'FaceColor',[1 1 1])
     hold on
-%     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,tt)/1000))
+    %     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,tt)/1000))
     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(stock_0/1000))
-    fedge=find(FLOW(1,:,tt) > 0);
-    for g=1:length(fedge)
-        plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
+%     fedge=find(FLOW(1,:,tt) > 0);
+    fedge=activeroute{1,tt};
+    %
+    islevent=find(slevent(1,fedge,tt) == 1);
+    inoslevent=find(slevent(1,fedge,tt) == 0);
+    if isempty(islevent) == 1
+        for g=1:length(fedge)
+            plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
+        end
+    else
+        for g=1:length(fedge(islevent))
+            plot([nodelon(1); nodelon(fedge(islevent(g)))],[nodelat(1); ...
+                nodelat(fedge(islevent(g)))],'-k')
+            plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),'kx','MarkerSize',ceil(slsuccess(1,fedge(islevent(g)),tt)./1000))
+        end
+        for k=1:length(fedge(inoslevent))
+            plot([nodelon(1); nodelon(fedge(inoslevent(k)))],[nodelat(1); nodelat(fedge(inoslevent(k)))],'-k')
+        end
     end
+%     for g=1:length(fedge)
+%         plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
+%     end
     plot(nodelon(2:nnodes),nodelat(2:nnodes),'b.','MarkerSize',3)
     xlabel('Longitude')
     ylabel('Latitude')
@@ -543,12 +564,30 @@ for tt=TSTART+1:t
                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
                 end
             end
-            fedge=find(FLOW(mm,:,tt) > 0);
-            if isempty(find(fedge,1)) == 1
-                plot(nodelon(mm),nodelat(mm),'kx','MarkerSize',ceil(MOV(mm,mm-1,tt)./1000))
-            else
+%             fedge=find(FLOW(mm,:,tt) > 0);
+            fedge=activeroute{mm,tt};
+%             if isempty(find(fedge,1)) == 1
+%                 plot(nodelon(mm),nodelat(mm),'kx','MarkerSize',ceil(MOV(mm,mm-1,tt)./1000))
+%             else
+%                 for g=1:length(fedge)
+%                     plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
+%                 end
+%             end
+            islevent=find(slevent(mm,fedge,tt) == 1);
+            inoslevent=find(slevent(mm,fedge,tt) == 0);
+            if isempty(islevent) == 1
                 for g=1:length(fedge)
                     plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
+                end
+            else
+                for g=1:length(fedge(islevent))
+                plot([nodelon(mm); nodelon(fedge(islevent(g)))],[nodelat(mm); ...
+                    nodelat(fedge(islevent(g)))],'-k')
+                plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),...
+                    'kx','MarkerSize',ceil(slsuccess(mm,fedge(islevent(g)),tt)./1000))
+                end
+                for k=1:length(fedge(inoslevent))
+                    plot([nodelon(mm); nodelon(fedge(inoslevent(k)))],[nodelat(mm); nodelat(fedge(inoslevent(k)))],'-k')
                 end
             end
         end
