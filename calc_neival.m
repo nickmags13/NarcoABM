@@ -1,5 +1,5 @@
 function [neipick,neivalue]=calc_neival(c_trans,p_sl,y_node,q_node,lccf,...
-    totstock,totcpcty)
+    totstock,totcpcty,tslrisk)
 
 pay_noevent=zeros(length(c_trans),1);
 pay_event=zeros(length(c_trans),1);
@@ -44,14 +44,22 @@ for i=1:length(c_trans)
     valuey(i)=salwght_noevent(i)*ypay_noevent(i)+salwght_event(i)*ypay_event(i);
     valuex(i)=salwght_noevent(i)*xpay_noevent(i)+salwght_event(i)*xpay_event(i);
 end
-[ineivalue,ineipick]=max([valuex valuey],[],2);
-iroute=find(ineipick == 1);
-if isempty(find(iroute,1)) == 1
-    [~,iroute]=max(ineivalue,[],1);
-end
-rankroute=sortrows([ineivalue(iroute) min(totstock/length(iroute),...
-    totcpcty(iroute))' q_node(iroute)' iroute],-1);  %rank trafficking routes by salient payoff
-% rankroute=sortrows([ineivalue(iroute) p_sl(iroute)' q_node(iroute)' iroute],2);  %rank trafficking routes by risk level
-icut=find(cumsum(rankroute(:,2)) <= totstock);  % select route based on total capcity
+%%% Select only the most salient route options
+%[ineivalue,ineipick]=max([valuex valuey],[],2);
+% iroute=find(ineipick == 1);
+% % % Select all route options that are within a specified loss tolerance
+% % iroute=find((1+losstol).*valuex > valuey);
+% if isempty(find(iroute,1)) == 1
+%     [~,iroute]=max(ineivalue,[],1);
+% end
+% rankroute=sortrows([ineivalue(iroute) min(totstock/length(iroute),...
+%     totcpcty(iroute))' q_node(iroute)' iroute],-1);  %rank trafficking routes by salient payoff
+% % rankroute=sortrows([ineivalue(iroute) p_sl(iroute)' q_node(iroute)' iroute],2);  %rank trafficking routes by risk level
+% icut=find(cumsum(rankroute(:,2)) <= totstock);  % select route based on total capcity
+
+%%% Selection based on maximize profits while less than average S&L risk
+rankroute=sortrows([valuex p_sl' q_node' iset'],-1);  %rank trafficking routes by salient payoff
+icut=find(cumsum(rankroute(:,2)) <= tslrisk);
+
 neipick=rankroute(icut,4);
 neivalue=rankroute(icut,1);

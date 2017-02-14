@@ -213,7 +213,8 @@ LCPTL=zeros(nnodes,TMAX);       % dynamic legitimate capital accumulated at each
 LEAK=zeros(nnodes,TMAX);        % dynamic amount of cocaine leaked at each node
 routepref=zeros(nnodes,TMAX);   % weighting by network agent of successful routes
 activeroute=cell(nnodes,TMAX);  % track active routes
-
+avgslrisk=cell(nnodes,TMAX);    % average S&L risk at each node given active routes
+totslrisk=zeros(1,TMAX);        % network-wide average S&L risk
 for k=1:nnodes-1
     if k == 1
         newedges=2:nnodes;
@@ -355,7 +356,7 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-for t=TSTART+1:20
+for t=TSTART+1:TMAX
     %%%%%% S&L and interdiction events %%%%%%
 %     %%% Fully random S&L events
 %     rndslevents=ones(size(ADJ));
@@ -395,9 +396,10 @@ for t=TSTART+1:20
          lccf=ltcoeff(n);
          totstock=STOCK(n,t);
          totcpcty=CPCTY(n,inei);
+         tslrisk=totslrisk(t);
          
          [neipick,neivalue]=calc_neival(c_trans,p_sl,y_node,q_node,lccf,...
-             totstock,totcpcty);
+             totstock,totcpcty,tslrisk);
          inei=inei(neipick);
          activeroute(n,t)=mat2cell(inei',length(inei),1);
          
@@ -451,7 +453,7 @@ for t=TSTART+1:20
 %       SLRISK(n,[bcknei fwdnei])=sl_risk;
       SLRISK(n,fwdnei)=sl_risk;
       INTRISK(n,t+1)=mean(intrd_risk);  %node-specific risk is the average of neighbor risks
-      
+      avgslrisk(n,t)=mat2cell(SLRISK(n,activeroute{n,t}));
       %!!!!!!!!!!!
 %          ICPTL(n,t)=ICPTL(n,t)-OUTFLOW(n,t)*VALUE(  %account for value retained at node
 
@@ -462,6 +464,7 @@ for t=TSTART+1:20
       %%% Make trafficking movie
       MOV(:,n,t)=STOCK(:,t);      % Capture stock data after each node iteration
     end
+    totslrisk(t+1)=mean(cat(1,avgslrisk{:,t}));
     %%% Updating interdiction event probability
     SLPROB(:,:,t+1)=max((1-delta_sl).*SLPROB(:,:,t)+delta_sl.*...
         (slsuccess(:,:,t)./max(max(slsuccess(:,:,t)))),SLPROB(:,:,TSTART));
@@ -490,7 +493,7 @@ toc     % stop run timer
 % % %%% Visualization %%%
 % 
 % %%% Trafficking movie
-writerObj = VideoWriter('trafficking_risk_v4short.mp4','MPEG-4');
+writerObj = VideoWriter('trafficking_risk_v4long.mp4','MPEG-4');
 writerObj.FrameRate=5;
 open(writerObj);
 
