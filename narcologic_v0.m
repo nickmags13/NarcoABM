@@ -26,7 +26,11 @@ maxlat=18.49656;
 minlat=5.49908990000006;
 maxlon=-77.163943085;
 minlon=-92.231320038;
-
+% simplify geometry
+latin=extractfield(CAadm0,'Lat')';
+lonin=extractfield(CAadm0,'Lon')';
+% [CAadm0_latrdc,CAadm0_lonrdc]=reducem(latin,lonin);
+    
 [CAadm1,CAattr1]=shaperead('X:\CentralAmericaData\GADM\g2015_2014_1\CAadm1.shp',...
     'UseGeoCoords',true);  %polygons
 % calat=cat(1,CAmap(:).Lat);
@@ -110,7 +114,7 @@ pend=geopoint(endlat,endlon,'NodeName',{'End Node'});
 alpharisk=0.001;  %baseline
 timewght_0=0.91;     %time discounting for subjective risk perception (Gallagher, 2014), range[0,1.05]
 % betarisk=alpharisk/slprob_0-alpharisk;
-betarisk=2.5;
+betarisk=0.5;
 
 
 % cntrycpcty=[0.1 0.1 0.1 0.1 0.1 0.1 0.1];   %country-specific, per node trafficking capacity
@@ -197,6 +201,7 @@ RMTFAC=zeros(nnodes);   % landscape factor (remoteness) influencing S&L risk
 COASTFAC=zeros(nnodes);   % landscape factor (distance to coast) influencing S&L risk
 rentcap=0.3*ones(nnodes,1);     % proportion of value of shipments 'captured' by nodes
 
+routepref=zeros(nnodes,nnodes,TMAX);   % weighting by network agent of successful routes
 slevent=zeros(nnodes,nnodes,TMAX);  % occurrence of S&L event
 slsuccess=zeros(nnodes,nnodes,TMAX);    % S&L events in which cocaine was seized
 SLPROB=zeros(nnodes,nnodes,TMAX);   % dynamic probability of S&L event per edge
@@ -211,7 +216,6 @@ TOTCPTL=zeros(nnodes,TMAX);     % total value of cocaine at each node
 ICPTL=zeros(nnodes,TMAX);       % dynamic illicit capital accumulated at each node
 LCPTL=zeros(nnodes,TMAX);       % dynamic legitimate capital accumulated at each node
 LEAK=zeros(nnodes,TMAX);        % dynamic amount of cocaine leaked at each node
-routepref=zeros(nnodes,TMAX);   % weighting by network agent of successful routes
 activeroute=cell(nnodes,TMAX);  % track active routes
 avgslrisk=cell(nnodes,TMAX);    % average S&L risk at each node given active routes
 totslrisk=zeros(1,TMAX);        % network-wide average S&L risk
@@ -344,7 +348,8 @@ twght=timewght_0*ones(nnodes,1);    % time weighting for dynamic, subjective per
     
 %%% Set-up trafficking netowrk benefit-cost logic  %%%%%%%%%%%%
 ltcoeff=ones(nnodes,1);
-routepref(:,TSTART:TSTART+1)=ones(nnodes,2);
+routepref(:,:,TSTART+1)=ADJ;
+totslrisk(TSTART+1)=1;
 
 %%% Define Node Investment Choice Sets
 
@@ -356,7 +361,7 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-for t=TSTART+1:TMAX
+for t=TSTART+1:20
     %%%%%% S&L and interdiction events %%%%%%
 %     %%% Fully random S&L events
 %     rndslevents=ones(size(ADJ));
@@ -397,9 +402,12 @@ for t=TSTART+1:TMAX
          totstock=STOCK(n,t);
          totcpcty=CPCTY(n,inei);
          tslrisk=totslrisk(t);
-         
+         rtpref=routepref(n,inei,t);
+
+%          [neipick,neivalue]=calc_neival(c_trans,p_sl,y_node,q_node,lccf,...
+%              totstock,totcpcty,tslrisk);
          [neipick,neivalue]=calc_neival(c_trans,p_sl,y_node,q_node,lccf,...
-             totstock,totcpcty,tslrisk);
+             rtpref,tslrisk);
          inei=inei(neipick);
          activeroute(n,t)=mat2cell(inei',length(inei),1);
          
@@ -407,8 +415,9 @@ for t=TSTART+1:TMAX
          if isempty(find(neivalue > 0,1)) == 1
              WGHT(n,inei)=1;
          else
-             WGHT(n,inei)=1+(abs(routepref(inei,t).*neivalue)./...
-                 sum(abs(routepref(inei,t).*neivalue))-1/length(inei));
+%              WGHT(n,inei)=1+(abs(routepref(inei,t).*neivalue)./...
+%                  sum(abs(routepref(inei,t).*neivalue))-1/length(inei));
+             WGHT(n,inei)=1+(abs(neivalue)./sum(abs(neivalue))-1/length(inei));
          end
 
          %%% !!! Put checks in to make sure buying node has enough capital
@@ -452,8 +461,13 @@ for t=TSTART+1:TMAX
           intrdoccur,t,TSTART,alpharisk,betarisk,timeweight);
 %       SLRISK(n,[bcknei fwdnei])=sl_risk;
       SLRISK(n,fwdnei)=sl_risk;
+
+      if isempty(find(sl_risk,1)) == 0
+          avgslrisk(n,t)=mat2cell(SLRISK(n,activeroute{n,t}),1,...
+              length(activeroute{n,t}));
+      end
       INTRISK(n,t+1)=mean(intrd_risk);  %node-specific risk is the average of neighbor risks
-      avgslrisk(n,t)=mat2cell(SLRISK(n,activeroute{n,t}));
+      
       %!!!!!!!!!!!
 %          ICPTL(n,t)=ICPTL(n,t)-OUTFLOW(n,t)*VALUE(  %account for value retained at node
 
@@ -464,7 +478,7 @@ for t=TSTART+1:TMAX
       %%% Make trafficking movie
       MOV(:,n,t)=STOCK(:,t);      % Capture stock data after each node iteration
     end
-    totslrisk(t+1)=mean(cat(1,avgslrisk{:,t}));
+    totslrisk(t+1)=mean(cat(2,avgslrisk{:,t}));
     %%% Updating interdiction event probability
     SLPROB(:,:,t+1)=max((1-delta_sl).*SLPROB(:,:,t)+delta_sl.*...
         (slsuccess(:,:,t)./max(max(slsuccess(:,:,t)))),SLPROB(:,:,TSTART));
@@ -473,15 +487,30 @@ for t=TSTART+1:TMAX
     % Reinforcement learning for successful routes
     iactivenode=find(OUTFLOW(2:nnodes-1,t) > 0)+1;
     avgflow=STOCK(iendnode,t)/length(iactivenode);
-    for nn=2:nnodes-1
-        if isempty(activeroute{nn,t}) == 1
-            routepref(nn,t+1)=(1-delta_rt).*routepref(nn,t-1);
-        else
-            rtwght=mean(FLOW(nn,activeroute{nn,t},t)./avgflow);
-            routepref(nn,t+1)=(1-delta_rt).*routepref(nn,t)+delta_rt.*rtwght;
-        end
-    end
-    routepref(iendnode,t+1)=1.1*max(routepref(:,t+1));
+%     subroutepref=zeros(nnodes,1);
+%     for nn=2:nnodes-1
+%         if isempty(activeroute{nn,t}) == 1
+% %             routepref(nn,t+1)=(1-delta_rt).*routepref(nn,t-1);
+%             subroutepref(nn)=(1-delta_rt).*routepref(nn,t-1);
+%         else
+%             rtwght=mean(FLOW(nn,activeroute{nn,t},t)./avgflow);
+% %             routepref(nn,t+1)=(1-delta_rt).*routepref(nn,t)+delta_rt.*rtwght;
+%             subroutepref(nn)=(1-delta_rt).*routepref(nn,t)+delta_rt.*rtwght;
+%         end
+%     end
+%     routepref(:,t+1)=subroutepref./max(subroutepref);
+% %     routepref(iendnode,t+1)=1;
+% %     routepref(iendnode,t+1)=1.1*max(routepref(:,t+1));
+
+    subroutepref=routepref(:,:,t);
+    activenodes=unique(cat(1,activeroute{:,t}));
+    supplyfit=STOCK(iendnode,t)/stock_0;
+    subflow=FLOW(:,:,t);
+    
+    %call top-down route optimization
+    newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
+        subroutepref,EdgeTable,SLRISK,ADDVAL,losstol);
+    routepref(:,:,t+1)=newroutepref;
 
     STOCK(1,t+1)=stock_0;    %additional production to enter network next time step
     STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step
@@ -493,7 +522,7 @@ toc     % stop run timer
 % % %%% Visualization %%%
 % 
 % %%% Trafficking movie
-writerObj = VideoWriter('trafficking_risk_v4long.mp4','MPEG-4');
+writerObj = VideoWriter('trafficking_risk_v4short.mp4','MPEG-4');
 writerObj.FrameRate=5;
 open(writerObj);
 

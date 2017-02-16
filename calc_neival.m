@@ -1,5 +1,5 @@
 function [neipick,neivalue]=calc_neival(c_trans,p_sl,y_node,q_node,lccf,...
-    totstock,totcpcty,tslrisk)
+    rtpref,tslrisk)
 
 pay_noevent=zeros(length(c_trans),1);
 pay_event=zeros(length(c_trans),1);
@@ -41,8 +41,14 @@ for i=1:length(c_trans)
         (lccf.^ival_event(i))*p_sl(i));
     salwght_noevent(i)=(1-p_sl(i))*dwght_noevent(i);
     salwght_event(i)=p_sl(i)*dwght_event(i);
-    valuey(i)=salwght_noevent(i)*ypay_noevent(i)+salwght_event(i)*ypay_event(i);
-    valuex(i)=salwght_noevent(i)*xpay_noevent(i)+salwght_event(i)*xpay_event(i);
+%     valuey(i)=rtpref(i)*salwght_noevent(i)*ypay_noevent(i)+...
+%         (1-rtpref(i))*salwght_event(i)*ypay_event(i);
+%     valuex(i)=rtpref(i)*salwght_noevent(i)*xpay_noevent(i)+...
+%         (1-rtpref(i))*salwght_event(i)*xpay_event(i);
+    valuey(i)=salwght_noevent(i)*ypay_noevent(i)+...
+        salwght_event(i)*ypay_event(i);
+    valuex(i)=salwght_noevent(i)*xpay_noevent(i)+...
+        salwght_event(i)*xpay_event(i);
 end
 %%% Select only the most salient route options
 %[ineivalue,ineipick]=max([valuex valuey],[],2);
@@ -58,8 +64,13 @@ end
 % icut=find(cumsum(rankroute(:,2)) <= totstock);  % select route based on total capcity
 
 %%% Selection based on maximize profits while less than average S&L risk
-rankroute=sortrows([valuex p_sl' q_node' iset'],-1);  %rank trafficking routes by salient payoff
-icut=find(cumsum(rankroute(:,2)) <= tslrisk);
+rankroute=sortrows([rtpref'.*valuex p_sl' q_node' iset'],-1);  %rank trafficking routes by salient payoff
+% icut=find(cumsum(rankroute(:,2)) <= tslrisk);
+if isempty(find(valuex > 0,1)) == 1
+    [~,icut]=min(rankroute(:,2),[],1);
+else
+    icut=find(rankroute(:,1) > 0);
+end
 
 neipick=rankroute(icut,4);
 neivalue=rankroute(icut,1);
