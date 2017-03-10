@@ -351,6 +351,11 @@ ltcoeff=ones(nnodes,1);
 routepref(:,:,TSTART+1)=ADJ;
 totslrisk(TSTART+1)=1;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%   Node Land Use Choices   %%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+OWN=zeros(size(LANDSUIT));  % node agent land ownership
+IOWN=cell(nnodes,TMAX);     % dynamic list of owned parcels
 %%% Define Node Investment Choice Sets
 
 %%% Set-up figure for trafficking movie
@@ -361,7 +366,7 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-for t=TSTART+1:20
+for t=TSTART+1:24
     %%%%%% S&L and interdiction events %%%%%%
 %     %%% Fully random S&L events
 %     rndslevents=ones(size(ADJ));
@@ -385,6 +390,7 @@ for t=TSTART+1:20
       %%%%%  Route cocaine shipmments %%%%%
       STOCK(n,t)=STOCK(n,t-1)+STOCK(n,t);
       TOTCPTL(n,t)=TOTCPTL(n,t-1)+TOTCPTL(n,t);
+
 %       ICPTL(n,t)=ICPTL(n,t-1)+ICPTL(n,t);
        if STOCK(n,t) > 0
          if n > 1
@@ -506,7 +512,7 @@ for t=TSTART+1:20
     activenodes=unique(cat(1,activeroute{:,t}));
     supplyfit=STOCK(iendnode,t)/stock_0;
     subflow=FLOW(:,:,t);
-    
+
     %call top-down route optimization
     newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
         subroutepref,EdgeTable,SLRISK,ADDVAL,losstol);
@@ -541,7 +547,7 @@ for tt=TSTART+1:t
     inoslevent=find(slevent(1,fedge,tt) == 0);
     if isempty(islevent) == 1
         for g=1:length(fedge)
-            plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
+            plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
         end
     else
         for g=1:length(fedge(islevent))
@@ -680,11 +686,11 @@ close(writerObj);
 % for i=1:length(nodelat)
 %         plot(nodelon(i),nodelat(i),'r.','MarkerSize',round(NodeTable.CoastDist(i)/10))
 % end
-% %%% Plot time series of flows and S&L
-% plot(1:t,STOCK(:,1:t),'-')
-% hold on
-% sltot=sum(sum(slsuccess(:,:,1:t),1));
-% plot(1:t,reshape(sltot,1,10),'-')
+%%% Plot time series of flows and S&L
+plot(1:t,STOCK(:,1:t),'-')
+hold on
+sltot=sum(sum(slsuccess(:,:,1:t),1));
+plot(1:t,reshape(sltot,1,t),'-')
 
 %%%%%% Diagnostics %%%%%%%
 slrecord=sum(slsuccess(:,:,1:t),3);
