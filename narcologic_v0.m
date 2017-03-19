@@ -354,9 +354,48 @@ totslrisk(TSTART+1)=1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%   Node Land Use Choices   %%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Land use choices are made annually, unlike trafficking choices
+Nuse=8; % %[intensive crop,extensive crop,pasture,forest,fallow(non-use),settlement,non-usable,cash crop]
+luprice=zeros(Nuse,TMAX);   % price time series for each land use
+
+%%%% Commodity Prices %%%%
+pcrops=1.5*(3.5/bu2kg)*mean(mean(MKTINF))^croppriceparm;
+ppasture=(0.25*lbs2kg)*mean(mean(MKTINF)).^croppriceparm;
+pforest=0.5*pcrops;
+pfallow=0*mean(mean(MKTINF));
+phouse=0*mean(mean(MKTINF));
+pnonuse=0*mean(mean(MKTINF));
+% Intensive cash crop
+pccrops=2.5*(3.5/bu2kg)*mean(mean(MKTINF))^croppriceparm;
+
 OWN=zeros(size(LANDSUIT));  % node agent land ownership
 IOWN=cell(nnodes,TMAX);     % dynamic list of owned parcels
+
+%Extensive cash crop
+% pccrops=0.75*pcrops;
+
 %%% Define Node Investment Choice Sets
+% Labor costs expressed in person-weeks/ha/yr
+ext2extcost=3;
+tree2extcost=3;
+mcroplabcost=[4 3 2.5 2 0 1000 1000 9 5];
+ccroplabcost=[4 3 2.5 2 0 1000 1000 9 4]; %Intensive case crop
+% ccroplabcost=[8 tree2extcost 4.5 0 0 1000 1000 8 1.5]; %Extensive cash crop
+
+laborcosts=[4   3       2.5     2    0   1000  1000 9 4;
+    4   ext2extcost     2.5     2    0   1000  1000 9 4;
+    4.5 2       1.5     1000    2   1000    1000 11 4;
+    8   tree2extcost    4.5     0    0   1000 1000 18 8;
+    7   2       2.5     2    0   1000    1000 15 7;
+    1000 1000   1000    1000    1000 0  1000 1000 1000;
+    1000 1000   1000    1000    1000    1000    0 1000 1000;
+    mcroplabcost;
+    ccroplabcost];
+laborcosts=laborcosts(1:Nuse,1:Nuse);
+
+inputcosts=zeros(size(laborcosts)); % includes monetary requirements for both hired labor and capital investment
+inputcosts(1:5,1)=1;
+inputcosts(1:5,3)=inputcosts(1,1)/2;
 
 %%% Set-up figure for trafficking movie
 MOV=zeros(nnodes,nnodes,TMAX);
