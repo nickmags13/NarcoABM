@@ -38,6 +38,10 @@ plmnodataval=-9999;
 [ctlden,Rctlden]=geotiffread('X:\CentralAmericaData\Model_inputs\ca_ctlden_250.tif');
 ctlnodataval=-9999;
 
+% Protected areas
+[protarea,Rprotarea]=geotiffread('X:\CentralAmericaData\Model_inputs\ca_WDPA_250.tif');
+protnodataval=255;
+
 %%% Reconcile to slope because it is the smallest raster
 firstrowlat=Rslope.LatitudeLimits(2);
 lastrowlat=Rslope.LatitudeLimits(1);
@@ -186,3 +190,17 @@ ctldendim=size(ctlden);
 ctlden=ctlden(1+max(topdiff,0):ctldendim(1)-max(bottomdiff,0),...
     1-min(leftdiff,0):ctldendim(2)+rghtdiff);
 geotiffwrite('X:\CentralAmericaData\Model_inputs\clipped\ctlden_clp.tif',ctlden,Rslope);
+
+% Protected Areas
+topdiff=round((Rprotarea.LatitudeLimits(2)-firstrowlat)/cellext);
+topadd=min(topdiff,0);
+bottomdiff=round((lastrowlat-Rprotarea.LatitudeLimits(1))/cellext);
+btmadd=min(bottomdiff,0);
+leftdiff=round((Rprotarea.LongitudeLimits(1)-firstcollon)/cellext);
+lftadd=max(leftdiff,0);
+rghtdiff=round((lastcollon-Rprotarea.LongitudeLimits(2))/cellext);
+rghtadd=max(rghtdiff,0);
+protareadim=size(protarea);
+protarea=protarea(1+max(topdiff,0):protareadim(1)-max(bottomdiff,0),...
+    1-min(leftdiff,0):protareadim(2)+rghtdiff);
+geotiffwrite('X:\CentralAmericaData\Model_inputs\clipped\protarea_clp.tif',protarea,Rslope);
