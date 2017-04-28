@@ -7,8 +7,8 @@ cd C:\Users\nmagliocca\Documents\Matlab_code\NarcoLogic
 %@@@@@@@@ Procedures @@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 TSTART=1;
-TMAX=180;   % 15 years at monthly time steps
-
+% TMAX=180;   % 15 years at monthly time steps
+TMAX=120;
 rng default
 
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -191,15 +191,15 @@ invst_suit(luint == 3 | luint == 5)=0.75;
 invst_suit(luint == 4)=1;
 
 %%% Weight each landscape attribute
-tcwght=1;       % tree cover
-brdwght=1;      % distance to country border
-dcstwght=0.1;     % distance to coast
-mktwght=0.75;      % market access
-popwght=1;      % population density - proxy for remoteness
-slpwght=0.5;      % slope-constrained land suitability
-luwght=0.25;       % suitability based on initial land use
-invstwght=0.25;    % investment potential of initial land use
-protwght=1;         % protected area
+tcwght=0;       % tree cover
+brdwght=0;      % distance to country border
+dcstwght=0;     % distance to coast
+mktwght=1;      % market access
+popwght=0;      % population density - proxy for remoteness
+slpwght=1;      % slope-constrained land suitability
+luwght=1;       % suitability based on initial land use
+invstwght=1;    % investment potential of initial land use
+protwght=0;         % protected area
 
 % LANDSUIT=tcwght.*treecov./100+brdwght.*dbrdr_suit+dcstwght.*dcoast_suit+...
 %     mktwght.*mktacc_suit+popwght.*pop_suit+slpwght.*slp_suit+luwght.*...
@@ -273,10 +273,13 @@ nodemktsuit=0;
 nodelusuit=0;
 nodelsuit=0;
 nodequant=quantile(LANDSUIT(~isnan(LANDSUIT)),[0.025 0.25 0.50 0.75 0.99]);
-inodepick=find(LANDSUIT > nodequant(5));
+inodepick=find(LANDSUIT >= nodequant(5));
 for i=1:length(cntrycodes)
     icntry=find(ca_adm0 == orderccodes(i));
     ipotnode=find(ismember(icntry,inodepick)==1);   %place nodes based on LANDSUIT
+    if isempty(find(ipotnode,1)) == 1
+        continue
+    end
     randnode=icntry(ipotnode(randperm(length(ipotnode),...
         round(10*avgtcov(i)./median(avgtcov)))));
     [nrow,ncol]=ind2sub(size(ca_adm0),randnode);
@@ -302,7 +305,7 @@ for i=1:length(cntrycodes)
         tnode=(1+(1:length(randnode)))';
         weights=ones(length(randnode),1);
         flows=ones(length(randnode),1);
-        cpcty=stock_0*ones(length(randnode),1); %currently all the same capacity, but could introduce heterogeneity
+        cpcty=2*stock_0*ones(length(randnode),1); %currently all the same capacity, but could introduce heterogeneity
         EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
             {'EndNodes' 'Weight' 'Flows' 'Capacity'});
     end
@@ -329,7 +332,7 @@ for i=1:length(cntrycodes)
         nodelsuit=[nodelsuit; 0];
         weights=ones(length(snode),1);
         flows=ones(length(snode),1);
-        cpcty=stock_0*ones(length(snode),1);
+        cpcty=2*stock_0*ones(length(snode),1);
         EdgeTable=table([EdgeTable.EndNodes; snode tnode],[EdgeTable.Weight; ...
             weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
             'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -382,7 +385,7 @@ for k=1:nnodes-1
         newedges=newedges(~nodechk);
         weights=ones(length(newedges),1);
         flows=ones(length(newedges),1);
-        cpcty=stock_0*ones(length(newedges),1);
+        cpcty=2*stock_0*ones(length(newedges),1);
         EdgeTable=table([EdgeTable.EndNodes; k*ones(length(newedges),1) newedges'],...
             [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
             'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -397,7 +400,7 @@ for k=1:nnodes-1
         newedges=newedges(~nodechk);
         weights=ones(length(newedges),1);
         flows=ones(length(newedges),1);
-        cpcty=stock_0*ones(length(newedges),1);
+        cpcty=2*stock_0*ones(length(newedges),1);
         EdgeTable=table([EdgeTable.EndNodes; k*ones(length(newedges),1) newedges'],...
             [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
             'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -413,7 +416,7 @@ nodechk=ismember(newedges,EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1
 newedges=newedges(~nodechk);
 weights=ones(length(newedges),1);
 flows=ones(length(newedges),1);
-cpcty=stock_0*ones(length(newedges),1);
+cpcty=2*stock_0*ones(length(newedges),1);
 EdgeTable=table([EdgeTable.EndNodes; newedges' iendnode*ones(length(newedges),1)],...
     [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
     'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -421,8 +424,9 @@ EdgeTable=table([EdgeTable.EndNodes; newedges' iendnode*ones(length(newedges),1)
 %%% Node Attributes
 % forest cover as proxy for remoteness; the higher the forest cover, the
 % more remote and lower the S&L risk. Start and end node unchanged.
-remotefac=[1; 2-NodeTable.PopSuit(NodeTable.PopSuit~=0)./...
-    max(NodeTable.PopSuit(NodeTable.PopSuit~=0)); 1];
+% remotefac=[1; 2-NodeTable.PopSuit(2:nnodes-1)./...
+%     max(NodeTable.PopSuit(2:nnodes-1)); 1];
+remotefac=[0; 1-NodeTable.PopSuit(NodeTable.PopSuit~=0); 0];
 % proximity to the coast also increases risk of S&L event
 % Find node distance to coast
 % lats_in=NodeTable.Lat;
@@ -432,8 +436,8 @@ remotefac=[1; 2-NodeTable.PopSuit(NodeTable.PopSuit~=0)./...
 icoastdist=sub2ind(size(dcoast),NodeTable.Row,NodeTable.Col);
 coastdist=dcoast(icoastdist);  %convert to km
 NodeTable.CoastDist=coastdist;
-coastfac=2-NodeTable.CoastDist(:)./max(NodeTable.CoastDist(:));
-
+% coastfac=2-NodeTable.CoastDist(:)./max(NodeTable.CoastDist(:));
+coastfac=[0; NodeTable.CoastDist(2:nnodes-1)./max(NodeTable.CoastDist(:)); 0];
 % Create adjacency matrix (without graph toolbox)
 ADJ(EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1),iendnode)=1;
 iedge=find(ADJ == 1);
@@ -464,23 +468,24 @@ for j=1:nnodes
     % Transportation costs
     idist_ground=(DIST(j,:)  >0 & DIST(j,:) <= 500);
     idist_air=(DIST(j,:) > 500);
-    % CTRANS(j,idist_ground)=ctrans_ground.*DIST(j,idist_ground);
-    % CTRANS(j,idist_air)=ctrans_air.*DIST(j,idist_air);
     if NodeTable.CoastDist(j) < 20
         ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
         idist_coast=(NodeTable.CoastDist(ireceiver) < 20);
         idist_inland=(NodeTable.CoastDist(ireceiver) >= 20);
+%         CTRANS(j,ireceiver(idist_coast))=ctrans_coast.*...
+%             COASTFAC(j,ireceiver(idist_coast)).*DIST(j,ireceiver(idist_coast));
+%         CTRANS(j,ireceiver(idist_inland))=ctrans_inland.*...
+%             RMTFAC(j,ireceiver(idist_inland)).*DIST(j,ireceiver(idist_inland));
         CTRANS(j,ireceiver(idist_coast))=ctrans_coast.*...
-            COASTFAC(j,ireceiver(idist_coast)).*DIST(j,ireceiver(idist_coast));
+            DIST(j,ireceiver(idist_coast));
         CTRANS(j,ireceiver(idist_inland))=ctrans_inland.*...
-            RMTFAC(j,ireceiver(idist_inland)).*DIST(j,ireceiver(idist_inland));
+            DIST(j,ireceiver(idist_inland));
     else
         ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
-        CTRANS(j,ireceiver)=ctrans_inland.*RMTFAC(j,ireceiver).*...
-            DIST(j,ireceiver);
+%         CTRANS(j,ireceiver)=ctrans_inland.*RMTFAC(j,ireceiver).*...
+%             DIST(j,ireceiver);
+        CTRANS(j,ireceiver)=ctrans_inland.*DIST(j,ireceiver);
     end
-%     CTRANS(j,idist_ground)=ctrans_inland.*RMTFAC(j,idist_ground).*DIST(j,idist_ground);
-%     CTRANS(j,idist_air)=ctrans_coast.*COASTFAC(j,idist_air).*DIST(j,idist_air);
 
     % Create gridded distance from node for calculating land use
     % neighborhood
@@ -502,7 +507,8 @@ end
 %%% Initialize Interdiction agent
 
 % SLPROB(:,:,TSTART)=max(min(COASTFAC.*RMTFAC.*(DIST./max(max(DIST))),1),0);   % dynamic probability of seisure and loss at edges
-SLPROB(:,:,TSTART)=max(min(DIST./max(max(DIST)),1),0);   
+% SLPROB(:,:,TSTART)=max(min(DIST./max(max(DIST)),1),0);
+SLPROB(:,:,TSTART)=max(min(COASTFAC.*RMTFAC+(DIST./max(max(DIST))),1),0);
 SLPROB(:,:,TSTART+1)=SLPROB(:,:,TSTART);
 INTRDPROB(:,TSTART+1)=slprob_0*ones(nnodes,1); % dynamic probability of interdiction at nodes
 
@@ -521,7 +527,8 @@ twght=timewght_0*ones(nnodes,1);    % time weighting for dynamic, subjective per
     
 %%% Set-up trafficking network benefit-cost logic  %%%%%%%%%%%%
 ltcoeff=ones(nnodes,1);
-routepref(:,:,TSTART+1)=ADJ;
+margprofit=ADDVAL-CTRANS;
+routepref(1,:,TSTART+1)=(margprofit(1,:)==max(margprofit(1,:)));
 totslrisk(TSTART+1)=1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -688,7 +695,7 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-for t=TSTART+1:24
+for t=TSTART+1:TMAX
     %%%%%% S&L and interdiction events %%%%%%
 %     %%% Fully random S&L events
 %     rndslevents=ones(size(ADJ));
@@ -720,7 +727,8 @@ for t=TSTART+1:24
              LEAK(n,t)=nodeloss*STOCK(n,t); %drugs 'leaked' at each node
              STOCK(n,t)=STOCK(n,t)-LEAK(n,t);
          end
-         inei=find(ADJ(n,:)==1);
+%          inei=find(ADJ(n,:)==1);
+         inei=find(ADJ(n,:) == 1 & routepref(n,:,t) > 0);
          %%% Procedure for selecting routes based on expected profit %%%
          c_trans=CTRANS(n,inei);
          p_sl=SLRISK(n,inei);
@@ -842,7 +850,7 @@ for t=TSTART+1:24
 
     %call top-down route optimization
     newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
-        subroutepref,EdgeTable,SLRISK,ADDVAL,losstol);
+        subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstol);
     routepref(:,:,t+1)=newroutepref;
 
     STOCK(1,t+1)=stock_0;    %additional production to enter network next time step
@@ -947,7 +955,7 @@ for t=TSTART+1:24
 %                     subctlprod(~isnan(subctlprod)));
                 ictlcells=neiind(neiind(:,2) <= proxcells(minsize(7),2),1);
                 ctlscale=1-max((sum(lvstckcost*ones(minsize(7),1))-...
-                    sum(sum(subctlprod(iplntcells(1:minsize(7))))./...
+                    sum(sum(subctlprod(ictlcells(1:minsize(7))))./...
                     (1+discount).^(1:25)))/sum(lvstckcost*ones(minsize(7),1)),0);
                 ctlecon=ctlscale*1/(1+(length(ictlcells)-minsize(7)));
                 cellprod=subctlprod(ictlcells)-ctlecon*lucost(isublu(ictlcells),7);
@@ -1004,121 +1012,191 @@ for t=TSTART+1:24
         end
     end
 end
+save('narcologic_results_null_040517','EdgeTable','NodeTable','LU','MOV','FLOW',...
+    'TOTCPTL','ICPTL','LCPTL','slsuccess','PROD','LUPROD','activeroute','STOCK')
+
 toc     % stop run timer
 %%
+%%% Create LUC map for viz
+difflumap=zeros(size(ca_adm0));
+iforest=find(LU(:,:,1)==4);
+difflumap(iforest)=4;
+LUCMAP=zeros(size(ca_adm0,1),size(ca_adm0,2),16);
+LUCMAP(:,:,1)=difflumap;
+for lt=2:(TMAX/12)+1
+    sublumap=LU(:,:,lt);
+    subprvmap=LU(:,:,1);
+    ichange=((sublumap-subprvmap) ~= 0);
+    LUCMAP(:,:,lt)=difflumap;
+    sublucmap=LUCMAP(:,:,lt);
+    
+%     ichange=(sublumap(iforest) ~= 4);
+    sublucmap(ichange)=sublumap(ichange);
+    LUCMAP(:,:,lt)=sublucmap;
+end
 % % %%% Visualization %%%
+clrmap=[1 1 1;  %built-up, nodata
+    1 1 1;  %crop
+    1 1 1;  %placeholder
+    0.2 0.5 0.2];    %forest
+
+clrmap2=[1 1 1;  %built-up, nodata
+    0 1 0;  %crop
+    1 1 1;  %placeholder
+    0.2 0.5 0.2;    %forest
+    0.7 1 0;    %pasture
+    1 1 1;  %placeholder
+    1 0 1;  %plantation
+    0 0 1]; %water
+
+% % %%% Trafficking movie
+% writerObj = VideoWriter('trafficking_lucombo_full_v1.mp4','MPEG-4');
+% writerObj.FrameRate=10;
+% open(writerObj);
 % 
-% %%% Trafficking movie
-writerObj = VideoWriter('trafficking_lu_v1short.mp4','MPEG-4');
-writerObj.FrameRate=1;
-open(writerObj);
-
-h1=figure;
-set(h1,'Color','white','Visible','off')
-
-for tt=TSTART+1:t
-    geoshow(CAadm0,'FaceColor',[1 1 1])
-    hold on
-    %     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,tt)/1000))
-    plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(stock_0))
-%     fedge=find(FLOW(1,:,tt) > 0);
-    fedge=activeroute{1,tt};
-    %
-    islevent=find(slevent(1,fedge,tt) == 1);
-    inoslevent=find(slevent(1,fedge,tt) == 0);
-    if isempty(islevent) == 1
-        for g=1:length(fedge)
-            plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
-        end
-    else
-        for g=1:length(fedge(islevent))
-            plot([nodelon(1); nodelon(fedge(islevent(g)))],[nodelat(1); ...
-                nodelat(fedge(islevent(g)))],'-k')
-            plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),'kx','MarkerSize',ceil(slsuccess(1,fedge(islevent(g)),tt)))
-        end
-        for k=1:length(fedge(inoslevent))
-            plot([nodelon(1); nodelon(fedge(inoslevent(k)))],[nodelat(1); nodelat(fedge(inoslevent(k)))],'-k')
-        end
-    end
-%     for g=1:length(fedge)
-%         plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
+% h1=figure;
+% set(h1,'Color','white','Visible','off')
+% geoshow(zeros(size(LUCMAP(:,:,1))),Rcagrid_cntry,'CData',LUCMAP(:,:,1),'DisplayType','surface')
+% colormap(clrmap)
+% hold on
+% for tt=144:180
+%     if rem(tt,12) == 0
+%         lt=tt/12;
+%         sublumap=LU(:,:,lt);
+%         subprvmap=LU(:,:,1);
+%         ichange=((sublumap-subprvmap) ~= 0);
+%         LUCMAP(:,:,lt)=difflumap;
+%         sublucmap=LUCMAP(:,:,lt);
+%         
+%         %     ichange=(sublumap(iforest) ~= 4);
+%         sublucmap(ichange)=sublumap(ichange);
+%         LUCMAP(:,:,lt)=sublucmap;
+%         geoshow(zeros(size(LUCMAP(:,:,tt/12))),Rcagrid_cntry,'CData',...
+%             LUCMAP(:,:,tt/12),'DisplayType','surface')
+%         colormap(clrmap2)
 %     end
-    plot(nodelon(2:nnodes),nodelat(2:nnodes),'b.','MarkerSize',3)
-    xlabel('Longitude')
-    ylabel('Latitude')
-    title(sprintf('Timestep(month) = %d',tt-1))
-    frame = getframe(h1);
-    writeVideo(writerObj,frame);
-    % set(gca,'nextplot','replacechildren');
-    % set(gcf,'Renderer','zbuffer');
-    % ax=gca;
-    % movfilename='testmov.gif';
-    % cmap=get(h1,'ColorMap');
-    % ax.NextPlot='replaceChildren';
-    % MOV(nnodes-1) = struct('cdata',[],'colormap',[]);
-    for mm=1:nnodes-1
-        if mm == 1
-            clf
-            geoshow(CAadm0,'FaceColor',[1 1 1])
-            hold on
-            for nn=1:nnodes
-                if MOV(nn,mm,tt) > 0
-                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)))
-                else
-                    plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
-                end
-            end
-            continue
-        end
-        if isempty(find(MOV(mm,mm-1,tt) > 0,1)) == 1
-            continue
-        else
-            clf
-            geoshow(CAadm0,'FaceColor',[1 1 1])
-            hold on
-            for nn=1:nnodes
-                if MOV(nn,mm,tt) > 0
-                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)))
-                else
-                    plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
-                end
-            end
-%             fedge=find(FLOW(mm,:,tt) > 0);
-            fedge=activeroute{mm,tt};
-%             if isempty(find(fedge,1)) == 1
-%                 plot(nodelon(mm),nodelat(mm),'kx','MarkerSize',ceil(MOV(mm,mm-1,tt)./1000))
+%     %     geoshow(CAadm0,'FaceColor',[1 1 1])
+%     geoshow(CAadm0,'FaceColor','none')
+%     hold on
+%     %     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,tt)/1000))
+%     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(stock_0))
+% % %     fedge=find(FLOW(1,:,tt) > 0);
+%     
+%     fedge=activeroute{1,tt};
+%     %
+%     islevent=find(slevent(1,fedge,tt) == 1);
+%     inoslevent=find(slevent(1,fedge,tt) == 0);
+%     if isempty(islevent) == 1
+%         for g=1:length(fedge)
+%             plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
+%         end
+%     else
+%         for g=1:length(fedge(islevent))
+%             plot([nodelon(1); nodelon(fedge(islevent(g)))],[nodelat(1); ...
+%                 nodelat(fedge(islevent(g)))],'-k')
+%             plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),'kx','MarkerSize',ceil(slsuccess(1,fedge(islevent(g)),tt)))
+%         end
+%         for k=1:length(fedge(inoslevent))
+%             plot([nodelon(1); nodelon(fedge(inoslevent(k)))],[nodelat(1); nodelat(fedge(inoslevent(k)))],'-k')
+%         end
+%     end
+% %     for g=1:length(fedge)
+% %         plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
+% %     end
+%     plot(nodelon(2:nnodes),nodelat(2:nnodes),'b.','MarkerSize',3)
+%     xlabel('Longitude')
+%     ylabel('Latitude')
+%     title(sprintf('Timestep(month) = %d',tt-1))
+%     frame = getframe(h1);
+%     writeVideo(writerObj,frame);
+%     % set(gca,'nextplot','replacechildren');
+%     % set(gcf,'Renderer','zbuffer');
+%     % ax=gca;
+%     % movfilename='testmov.gif';
+%     % cmap=get(h1,'ColorMap');
+%     % ax.NextPlot='replaceChildren';
+%     % MOV(nnodes-1) = struct('cdata',[],'colormap',[]);
+%     for mm=1:nnodes-1
+%         if mm == 1
+%             clf
+%             if rem(tt,12) == 0
+%                 geoshow(zeros(size(LUCMAP(:,:,tt/12))),Rcagrid_cntry,'CData',...
+%                     LUCMAP(:,:,tt/12),'DisplayType','surface')
+%                 colormap(clrmap2)
 %             else
+%                 geoshow(zeros(size(LUCMAP(:,:,1))),Rcagrid_cntry,'CData',LUCMAP(:,:,1),'DisplayType','surface')
+%                 colormap(clrmap)
+%             end
+%             hold on
+%             geoshow(CAadm0,'FaceColor','none')
+% %             hold on
+%             for nn=1:nnodes
+%                 if MOV(nn,mm,tt) > 0
+%                     plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)))
+%                 else
+%                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
+%                 end
+%             end
+%             continue
+%         end
+%         if isempty(find(MOV(mm,mm-1,tt) > 0,1)) == 1
+%             continue
+%         else
+%             clf
+%             if rem(tt,12) == 0
+%                 geoshow(zeros(size(LUCMAP(:,:,tt/12))),Rcagrid_cntry,'CData',...
+%                     LUCMAP(:,:,tt/12),'DisplayType','surface')
+%                 colormap(clrmap2)
+%             else
+%                 geoshow(zeros(size(LUCMAP(:,:,1))),Rcagrid_cntry,'CData',LUCMAP(:,:,1),'DisplayType','surface')
+%                 colormap(clrmap)  
+%             end
+%             hold on
+%             geoshow(CAadm0,'FaceColor','none')
+% %             hold on
+%             for nn=1:nnodes
+%                 if MOV(nn,mm,tt) > 0
+%                     plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)))
+%                 else
+%                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
+%                 end
+%             end
+% %             fedge=find(FLOW(mm,:,tt) > 0);
+%             fedge=activeroute{mm,tt};
+% %             if isempty(find(fedge,1)) == 1
+% %                 plot(nodelon(mm),nodelat(mm),'kx','MarkerSize',ceil(MOV(mm,mm-1,tt)./1000))
+% %             else
+% %                 for g=1:length(fedge)
+% %                     plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
+% %                 end
+% %             end
+%             islevent=find(slevent(mm,fedge,tt) == 1);
+%             inoslevent=find(slevent(mm,fedge,tt) == 0);
+%             if isempty(islevent) == 1
 %                 for g=1:length(fedge)
 %                     plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
 %                 end
+%             else
+%                 for g=1:length(fedge(islevent))
+%                 plot([nodelon(mm); nodelon(fedge(islevent(g)))],[nodelat(mm); ...
+%                     nodelat(fedge(islevent(g)))],'-k')
+%                 plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),...
+%                     'kx','MarkerSize',ceil(slsuccess(mm,fedge(islevent(g)),tt)))
+%                 end
+%                 for k=1:length(fedge(inoslevent))
+%                     plot([nodelon(mm); nodelon(fedge(inoslevent(k)))],[nodelat(mm); nodelat(fedge(inoslevent(k)))],'-k')
+%                 end
 %             end
-            islevent=find(slevent(mm,fedge,tt) == 1);
-            inoslevent=find(slevent(mm,fedge,tt) == 0);
-            if isempty(islevent) == 1
-                for g=1:length(fedge)
-                    plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
-                end
-            else
-                for g=1:length(fedge(islevent))
-                plot([nodelon(mm); nodelon(fedge(islevent(g)))],[nodelat(mm); ...
-                    nodelat(fedge(islevent(g)))],'-k')
-                plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),...
-                    'kx','MarkerSize',ceil(slsuccess(mm,fedge(islevent(g)),tt)))
-                end
-                for k=1:length(fedge(inoslevent))
-                    plot([nodelon(mm); nodelon(fedge(inoslevent(k)))],[nodelat(mm); nodelat(fedge(inoslevent(k)))],'-k')
-                end
-            end
-        end
-        xlabel('Longitude')
-        ylabel('Latitude')
-        title(sprintf('Timestep(month) = %d',tt-1))
-        frame = getframe(h1);
-        writeVideo(writerObj,frame);
-    end
-    clf
-end
-close(writerObj);
+%         end
+%         xlabel('Longitude')
+%         ylabel('Latitude')
+%         title(sprintf('Timestep(month) = %d',tt-1))
+%         frame = getframe(h1);
+%         writeVideo(writerObj,frame);
+%     end
+%     clf
+% end
+% close(writerObj);
 % 
 % % im = frame2im(frame);
 % % [A,cmap] = rgb2ind(im,256);
@@ -1167,27 +1245,66 @@ close(writerObj);
 % for i=1:length(nodelat)
 %         plot(nodelon(i),nodelat(i),'r.','MarkerSize',round(NodeTable.CoastDist(i)/10))
 % end
-% %%% Plot time series of flows and S&L
-% plot(1:t,STOCK(1:nnodes-1,1:t),'-')
-% hold on
-% plot(1:t,STOCK(71,1:t),'--k')
-% sltot=sum(sum(slsuccess(:,:,1:t),1));
-% plot(1:t,reshape(sltot,1,t),'--r')
+%%% Plot time series of flows and S&L
+h1_1=figure;
+set(h1_1,'Color','white')
+plot(1:TMAX,STOCK(1,1:TMAX),'-b')
+hold on
+plot(1:TMAX,STOCK(nnodes,1:TMAX),'--k')
+sltot=sum(sum(slsuccess(:,:,1:TMAX),1));
+plot(1:TMAX,reshape(sltot,1,TMAX),'--r')
+xlim([0 TMAX])
+ylabel('Cocaine Volume kg/month')
+xlabel('Month')
+legend('Producer','Consumer','S&L','Orientation','horizontal','Location','southoutside')
+saveas(h1_1,'Flows_vs_SL_null.png')
 % 
 % %%%%%% Diagnostics %%%%%%%
 % slrecord=sum(slsuccess(:,:,1:t),3);
 % [slr,slc]=ind2sub(size(slrecord),find(slrecord > 0));
 
-%%%% Land use maps
-% Initial land use
-clrmap=[0 0 0;  %built-up, nodata
-    0 1 0;  %crop
-    0 0 0;  %placeholder
-    0.2 0.5 0.2;    %forest
-    0.7 1 0;    %pasture
-    0 0 0;  %placeholder
-    1 0 1;  %plantation
-    0 0 1]; %water
+% %%%% Land use maps
+% % Initial land use
+% clrmap=[0 0 0;  %built-up, nodata
+%     0 1 0;  %crop
+%     0 0 0;  %placeholder
+%     0.2 0.5 0.2;    %forest
+%     0.7 1 0;    %pasture
+%     0 0 0;  %placeholder
+%     1 0 1;  %plantation
+%     0 0 1]; %water
+
+% %%% change map
+% 
+% h1_2=figure;
+% set(h1_2,'Color','white')
+% difflumap=zeros(size(ca_adm0));
+% iforest=find(LU(:,:,1)==4);
+% difflumap(iforest)=4;
+% LUCMAP=zeros(size(ca_adm0,1),size(ca_adm0,2),16);
+% LUCMAP(:,:,1)=difflumap;
+% for lt=2:(TMAX/12)+1
+%     sublumap=LU(:,:,lt);
+%     subprvmap=LU(:,:,1);
+%     ichange=((sublumap-subprvmap) ~= 0);
+%     LUCMAP(:,:,lt)=difflumap;
+%     sublucmap=LUCMAP(:,:,lt);
+%     
+% %     ichange=(sublumap(iforest) ~= 4);
+%     sublucmap(ichange)=sublumap(ichange);
+%     LUCMAP(:,:,lt)=sublucmap;
+% end
+% imagesc(LUCMAP(:,:,lt));
+% clrmap=[1 1 1;  %built-up, nodata
+%     0 1 0;  %crop
+%     1 1 1;  %placeholder
+%     0.2 0.5 0.2;    %forest
+%     0.7 1 0;    %pasture
+%     1 1 1;  %placeholder
+%     1 0 1;  %plantation
+%     0 0 1]; %water
+% colormap(clrmap);
+% set(gca,'Visible','off')
 
 % %%% Command to use
 % % digraph, maxflow, nearest

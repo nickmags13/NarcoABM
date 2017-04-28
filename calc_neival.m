@@ -68,6 +68,8 @@ rankroute=sortrows([rtpref'.*valuex p_sl' q_node' iset'],-1);  %rank trafficking
 % icut=find(cumsum(rankroute(:,2)) <= tslrisk);
 if isempty(find(valuex > 0,1)) == 1
     [~,icut]=min(rankroute(:,2),[],1);
+elseif isempty(find(rankroute(:,1) > 0,1)) == 1
+    icut=find(rankroute(:,1) >= 0);
 else
     icut=find(rankroute(:,1) > 0);
 end

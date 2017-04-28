@@ -397,8 +397,9 @@ EdgeTable=table([EdgeTable.EndNodes; newedges' iendnode*ones(length(newedges),1)
 %%% Node Attributes
 % forest cover as proxy for remoteness; the higher the forest cover, the
 % more remote and lower the S&L risk. Start and end node unchanged.
-remotefac=[1; 2-NodeTable.PopSuit(NodeTable.PopSuit~=0)./...
-    max(NodeTable.PopSuit(NodeTable.PopSuit~=0)); 1];
+% remotefac=[1; 2-NodeTable.PopSuit(NodeTable.PopSuit~=0)./...
+%     max(NodeTable.PopSuit(NodeTable.PopSuit~=0)); 1];
+remotefac=[0; 1-NodeTable.PopSuit(NodeTable.PopSuit~=0); 0];
 % proximity to the coast also increases risk of S&L event
 % Find node distance to coast
 % lats_in=NodeTable.Lat;
@@ -408,7 +409,8 @@ remotefac=[1; 2-NodeTable.PopSuit(NodeTable.PopSuit~=0)./...
 icoastdist=sub2ind(size(dcoast),NodeTable.Row,NodeTable.Col);
 coastdist=dcoast(icoastdist);  %convert to km
 NodeTable.CoastDist=coastdist;
-coastfac=2-NodeTable.CoastDist(:)./max(NodeTable.CoastDist(:));
+% coastfac=2-NodeTable.CoastDist(:)./max(NodeTable.CoastDist(:));
+coastfac=[0; NodeTable.CoastDist(2:nnodes-1)./max(NodeTable.CoastDist(:)); 0];
 
 % Create adjacency matrix (without graph toolbox)
 ADJ(EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1),iendnode)=1;
@@ -440,29 +442,31 @@ for j=1:nnodes
     % Transportation costs
     idist_ground=(DIST(j,:)  >0 & DIST(j,:) <= 500);
     idist_air=(DIST(j,:) > 500);
-    % CTRANS(j,idist_ground)=ctrans_ground.*DIST(j,idist_ground);
-    % CTRANS(j,idist_air)=ctrans_air.*DIST(j,idist_air);
     if NodeTable.CoastDist(j) < 20
         ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
         idist_coast=(NodeTable.CoastDist(ireceiver) < 20);
         idist_inland=(NodeTable.CoastDist(ireceiver) >= 20);
+%         CTRANS(j,ireceiver(idist_coast))=ctrans_coast.*...
+%             COASTFAC(j,ireceiver(idist_coast)).*DIST(j,ireceiver(idist_coast));
+%         CTRANS(j,ireceiver(idist_inland))=ctrans_inland.*...
+%             RMTFAC(j,ireceiver(idist_inland)).*DIST(j,ireceiver(idist_inland));
         CTRANS(j,ireceiver(idist_coast))=ctrans_coast.*...
-            COASTFAC(j,ireceiver(idist_coast)).*DIST(j,ireceiver(idist_coast));
+            DIST(j,ireceiver(idist_coast));
         CTRANS(j,ireceiver(idist_inland))=ctrans_inland.*...
-            RMTFAC(j,ireceiver(idist_inland)).*DIST(j,ireceiver(idist_inland));
+            DIST(j,ireceiver(idist_inland));
     else
         ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
-        CTRANS(j,ireceiver)=ctrans_inland.*RMTFAC(j,ireceiver).*...
-            DIST(j,ireceiver);
+%         CTRANS(j,ireceiver)=ctrans_inland.*RMTFAC(j,ireceiver).*...
+%             DIST(j,ireceiver);
+        CTRANS(j,ireceiver)=ctrans_inland.*DIST(j,ireceiver);
     end
-%     CTRANS(j,idist_ground)=ctrans_inland.*RMTFAC(j,idist_ground).*DIST(j,idist_ground);
-%     CTRANS(j,idist_air)=ctrans_coast.*COASTFAC(j,idist_air).*DIST(j,idist_air);
 end
 
 
 %%% Initialize Interdiction agent
-
-SLPROB(:,:,TSTART)=max(min(COASTFAC.*RMTFAC.*(DIST./max(max(DIST))),1),0);   % dynamic probability of seisure and loss at edges
+% SLPROB(:,:,TSTART)=max(min((COASTFAC./max(max(COASTFAC))).*...
+%     (RMTFAC./max(max(RMTFAC))).*(DIST./max(max(DIST))),1),0);
+SLPROB(:,:,TSTART)=max(min(COASTFAC.*RMTFAC+(DIST./max(max(DIST))),1),0);   % dynamic probability of seisure and loss at edges
 SLPROB(:,:,TSTART+1)=SLPROB(:,:,TSTART);
 INTRDPROB(:,TSTART+1)=slprob_0*ones(nnodes,1); % dynamic probability of interdiction at nodes
 
@@ -481,7 +485,9 @@ twght=timewght_0*ones(nnodes,1);    % time weighting for dynamic, subjective per
     
 %%% Set-up trafficking netowrk benefit-cost logic  %%%%%%%%%%%%
 ltcoeff=ones(nnodes,1);
-routepref(:,:,TSTART+1)=ADJ;
+% routepref(:,:,TSTART+1)=ADJ;
+margprofit=ADDVAL-CTRANS;
+routepref(1,:,TSTART+1)=(margprofit(1,:)==max(margprofit(1,:)));
 totslrisk(TSTART+1)=1;
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -648,7 +654,8 @@ for t=TSTART+1:24
              LEAK(n,t)=nodeloss*STOCK(n,t); %drugs 'leaked' at each node
              STOCK(n,t)=STOCK(n,t)-LEAK(n,t);
          end
-         inei=find(ADJ(n,:)==1);
+%          inei=find(ADJ(n,:)==1);
+         inei=find(ADJ(n,:) == 1 & routepref(n,:,t) > 0);
          %%% Procedure for selecting routes based on expected profit %%%
          c_trans=CTRANS(n,inei);
          p_sl=SLRISK(n,inei);
@@ -763,10 +770,11 @@ for t=TSTART+1:24
     activenodes=unique(cat(1,activeroute{:,t}));
     supplyfit=STOCK(iendnode,t)/stock_0;
     subflow=FLOW(:,:,t);
+%     margprofit=ADDVAL-CTRANS;
 
     %call top-down route optimization
     newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
-        subroutepref,EdgeTable,SLRISK,ADDVAL,losstol);
+        subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstol);
     routepref(:,:,t+1)=newroutepref;
 
     STOCK(1,t+1)=stock_0;    %additional production to enter network next time step
@@ -780,7 +788,7 @@ toc     % stop run timer
 % 
 % %%% Trafficking movie
 writerObj = VideoWriter('trafficking_risk_v4short.mp4','MPEG-4');
-writerObj.FrameRate=5;
+writerObj.FrameRate=10;
 open(writerObj);
 
 h1=figure;
@@ -790,7 +798,7 @@ for tt=TSTART+1:t
     geoshow(CAadm0,'FaceColor',[1 1 1])
     hold on
     %     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,tt)/1000))
-    plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(stock_0/1000))
+    plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(stock_0/10))
 %     fedge=find(FLOW(1,:,tt) > 0);
     fedge=activeroute{1,tt};
     %
@@ -804,10 +812,12 @@ for tt=TSTART+1:t
         for g=1:length(fedge(islevent))
             plot([nodelon(1); nodelon(fedge(islevent(g)))],[nodelat(1); ...
                 nodelat(fedge(islevent(g)))],'-k')
-            plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),'kx','MarkerSize',ceil(slsuccess(1,fedge(islevent(g)),tt)./1000))
+            plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),...
+                'kx','MarkerSize',ceil(slsuccess(1,fedge(islevent(g)),tt)./10))
         end
         for k=1:length(fedge(inoslevent))
-            plot([nodelon(1); nodelon(fedge(inoslevent(k)))],[nodelat(1); nodelat(fedge(inoslevent(k)))],'-k')
+            plot([nodelon(1); nodelon(fedge(inoslevent(k)))],[nodelat(1); ...]
+                nodelat(fedge(inoslevent(k)))],'-k')
         end
     end
 %     for g=1:length(fedge)
@@ -833,7 +843,7 @@ for tt=TSTART+1:t
             hold on
             for nn=1:nnodes
                 if MOV(nn,mm,tt) > 0
-                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./1000))
+                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./10))
                 else
                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
                 end
@@ -848,7 +858,7 @@ for tt=TSTART+1:t
             hold on
             for nn=1:nnodes
                 if MOV(nn,mm,tt) > 0
-                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./1000))
+                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./10))
                 else
                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
                 end
@@ -873,10 +883,11 @@ for tt=TSTART+1:t
                 plot([nodelon(mm); nodelon(fedge(islevent(g)))],[nodelat(mm); ...
                     nodelat(fedge(islevent(g)))],'-k')
                 plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),...
-                    'kx','MarkerSize',ceil(slsuccess(mm,fedge(islevent(g)),tt)./1000))
+                    'kx','MarkerSize',ceil(slsuccess(mm,fedge(islevent(g)),tt)./10))
                 end
                 for k=1:length(fedge(inoslevent))
-                    plot([nodelon(mm); nodelon(fedge(inoslevent(k)))],[nodelat(mm); nodelat(fedge(inoslevent(k)))],'-k')
+                    plot([nodelon(mm); nodelon(fedge(inoslevent(k)))],...
+                        [nodelat(mm); nodelat(fedge(inoslevent(k)))],'-k')
                 end
             end
         end

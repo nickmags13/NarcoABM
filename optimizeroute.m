@@ -1,6 +1,6 @@
 %%%%%%% Top-down supply chain optimization %%%%%%%%
 function newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
-    subroutepref,EdgeTable,SLRISK,ADDVAL,losstol)
+    subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstol)
 
 allnodes=2:nnodes;
 iactiveedges=find(subflow > 0);
@@ -48,8 +48,8 @@ if supplyfit >= losstol   %need to consolidate supply chain
    end
 elseif supplyfit < losstol    %need to expand supply chain
     potnodes=allnodes(~ismember(allnodes,activenodes));
-    edgeadd=1:min(floor(length(activenodes)*(1+(losstol-supplyfit)))-...
-        length(activenodes),length(potnodes));
+    edgeadd=1:min(max(floor(length(activenodes)*(1+(losstol-supplyfit)))-...
+        length(activenodes),1),length(potnodes));
 %     if length(potnodes) < length(edgeadd) || isempty(find(potnodes,1)) == 1
     if isempty(find(potnodes,1)) == 1
         display('No more nodes to expand')
@@ -65,9 +65,9 @@ elseif supplyfit < losstol    %need to expand supply chain
 %             potreceivers=potreceivers(ismember(potreceivers,activenodes));
             ipotedge=sub2ind(size(SLRISK),potsenders,...
                 potnodes(k)*ones(length(potsenders),1));
-            newedgeparms=[newedgeparms; ADDVAL(potsenders,potnodes(k)) ...
-                SLRISK(potsenders,potnodes(k)) ipotedge ...
-                k*ones(length(potsenders),1)];
+            newedgeparms=[newedgeparms; (ADDVAL(potsenders,potnodes(k))-...
+                CTRANS(potsenders,potnodes(k))).*(1-SLRISK(potsenders,potnodes(k))) ...
+                SLRISK(potsenders,potnodes(k)) ipotedge k*ones(length(potsenders),1)];
 %             ipotedge=sub2ind(size(SLRISK),[potsenders; potreceivers],...
 %                 potnodes(k)*ones(length([potsenders; potreceivers]),1));
 %             newedgeparms=[newedgeparms; [ADDVAL(potsenders,potnodes(k)); ...
@@ -75,12 +75,14 @@ elseif supplyfit < losstol    %need to expand supply chain
 %                 SLRISK(potnodes(k),potreceivers)']  ipotedge ...
 %                 k*ones(length([potsenders; potreceivers]),1)];
         end
-        edgesort=sortrows(newedgeparms,2); %refernce this array when removing edges
+%         edgesort=sortrows(newedgeparms,2); %refernce this array when removing edges
+        edgesort=sortrows(newedgeparms,-1);
         subroutepref(edgesort(edgeadd,3))=1;
         ireceivers=EdgeTable.EndNodes(ismember(EdgeTable.EndNodes(:,1),...
                 unique(potnodes(edgesort(edgeadd,4)))),:);
         addind=sub2ind(size(SLRISK),ireceivers(:,1),ireceivers(:,2));
         subroutepref(addind)=1;
+        subroutepref(ireceivers(:,2),nnodes)=1;
 %         if length(unique(edgesort(edgeadd,4))) == length(potnodes)
 %             % if edge is selected to send, then at least one of the sending
 %             % edges of the new node must be activated
