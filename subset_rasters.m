@@ -38,6 +38,10 @@ plmnodataval=-9999;
 [ctlden,Rctlden]=geotiffread('X:\CentralAmericaData\Model_inputs\ca_ctlden_250.tif');
 ctlnodataval=-9999;
 
+% Administrative departments
+[dptgrid,Rdptgrid]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\admdpmnt.tif');
+dptnodataval=-9999;
+
 % Protected areas
 [protarea,Rprotarea]=geotiffread('X:\CentralAmericaData\Model_inputs\ca_WDPA_250.tif');
 protnodataval=255;
@@ -58,6 +62,16 @@ dcoastdim=size(dcoast);
 dcoast=dcoast(1+topdiff:dcoastdim(1)-bottomdiff,...
     1+leftdiff:dcoastdim(2)+rghtdiff);
 geotiffwrite('X:\CentralAmericaData\Model_inputs\clipped\dcoast_clp.tif',dcoast,Rslope);
+
+% Admin departments
+topdiff=round((Rdptgrid.LatitudeLimits(2)-firstrowlat)/cellext);
+bottomdiff=round((lastrowlat-Rdptgrid.LatitudeLimits(1))/cellext);
+leftdiff=round((Rdptgrid.LongitudeLimits(1)-firstcollon)/cellext);
+rghtdiff=round((lastcollon-Rdptgrid.LongitudeLimits(2))/cellext);
+dptgriddim=size(dptgrid);
+trimdptgrid=dptgrid(1+topdiff:dptgriddim(1)-bottomdiff,...
+    1+leftdiff:dptgriddim(2)+rghtdiff);
+geotiffwrite('X:\CentralAmericaData\Model_inputs\clipped\dptgrid_clp.tif',trimdptgrid,Rslope);
 
 % Distance to border
 topdiff=round((Rdbrdr.LatitudeLimits(2)-firstrowlat)/cellext);

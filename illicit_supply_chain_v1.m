@@ -44,15 +44,27 @@ cntrlat=cat(1,CAcntr.Lat);
 cntrlon=cat(1,CAcntr.Lon);
 CApts=geopoint(CAcntr);
 
+% Spatial narco vars by administrative departments
+[dptvars,dptvarsattr]=shaperead('X:\CentralAmericaData\GADM\CA_ALLt_UTM\CA_ALLt_narcovars.shp',...
+    'UseGeoCoords',true);
+dptcode=cat(1,dptvarsattr.ADM1_CODE);
+intlbrdrdmmy=cat(1,dptvarsattr.MAX_1);
+coastdmmy=cat(1,dptvarsattr.COASTDMMY);
+% meanlat=cat(1,dptvarsattr.MEAN_1);
+
+
 % [POmills_pts,POattr0]=shaperead('X:\CentralAmericaData\Model_inputs\ca_pomill_pts.SHP','UseGeoCoords',...
 %     true);
 
 
 %%% Raster layers %%%
 % Central America adminstrative boundaries level 2, objectid
-[cagrid,Rcagrid]=geotiffread('X:\CentralAmericaData\CentralAmerica\cagd_adm2_500.tif');
-cagrid(cagrid == 2147483647)=0;     %remove No Data value
-ca_adm2=double(cagrid);
+[dptgrid,Rdptgrid]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\dptgrid_clp.tif');
+dptnodataval=-9999;
+dptgrid=double(dptgrid);
+% dptgrid(dptgrid == dptnodataval)=NaN;     %remove No Data value
+dptcodes=unique(dptgrid);
+dptcodes=dptcodes(dptcodes ~= dptnodataval);
 
 % Central America adminstrative boundaries level 0, objectid
 [cagrid_cntry,Rcagrid_cntry]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\ca_cntry_clp.tif');
@@ -60,15 +72,50 @@ cntrynodataval=255;
 ca_adm0=double(cagrid_cntry);
 ca_adm0(cagrid_cntry == cntrynodataval)=NaN; %remove No Data value
 
-cellsize=Rcagrid.CellExtentInLatitude;
+cellsize=Rcagrid_cntry.CellExtentInLatitude;
 %%%% reconciled to 'ca_slope_250.tif'
 
 cntrycodes=unique(cagrid_cntry);    %subset landscape by country to place nodes
 % Belize(23),Costa
 % Rica(55),Panama(173),Guatemala(94),Honduras(101),Nicuragua(161),El
 % Salvador(70)
+% cntryorder=[173 55 161 101 70 94];
 cntrycodes=cntrycodes(cntrycodes ~= 0 & cntrycodes ~= cntrynodataval);
-orderccodes=[173 55 161 94 70 101 23]; %order countries in desired order of nodes
+% pandptcodes=unique(dptgrid(ca_adm0 == 173));
+% pandptcodes=pandptcodes(pandptcodes ~= -9999);
+% meanpanlon=zeros(length(pandptcodes),1);
+% for j=1:length(pandptcodes)
+%     [nrow,ncol]=ind2sub(size(dptgrid),find(dptgrid == pandptcodes(j)));
+%     [nlat,nlon]=pix2latlon(Rdptgrid,nrow,ncol);
+%     meanpanlon(j)=mean(nlon);
+% end
+% sortpanlon=sortrows([pandptcodes meanpanlon],-2);
+
+dbrdr_suit=zeros(size(dptgrid));
+for iadm=1:length(dptcodes)
+    admind=(dptgrid == dptcodes(iadm));
+    dbrdr_suit(admind)=intlbrdrdmmy(iadm);
+end
+%order countries in desired order of nodes based on macroeconomics
+% ordernodes=[173 55 161 94 70 101 23]; 
+% ordernodes=sortrows([dptcode meanlat],2);
+% ordernodes(ismember(ordernodes,sortpanlon(:,1)),1)=sortpanlon(:,1);
+% meanlat=zeros(length(dptcodes),1);
+% meanlon=zeros(length(dptcodes),1);
+maxlat=zeros(length(dptcodes),1);
+maxlon=zeros(length(dptcodes),1);
+for j=1:length(dptcodes)
+    [nrow,ncol]=ind2sub(size(dptgrid),find(dptgrid == dptcodes(j)));
+    [nlat,nlon]=pix2latlon(Rdptgrid,nrow,ncol);
+%     meanlat(j)=mean(nlat);
+%     meanlon(j)=mean(nlon);
+    maxlat(j)=max(nlat);
+    maxlon(j)=max(nlon);
+end
+% nodevec=sqrt(meanlat.^2+meanlon.^2);
+nodevec=sqrt(0.9*maxlat.^2+0.1*maxlon.^2);
+nodemat=[dptcodes nodevec];
+nodeorder=sortrows(nodemat,2);
 
 % Tree cover
 [tcov,Rtcov]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\treecov_clp.tif');
@@ -80,8 +127,8 @@ itreecov=find(treecov > 0); %identify high forest cover areas
 treecovpct=quantile(treecov(itreecov),[0.025 0.25 0.50 0.75 0.975]);
 itreepick=find(treecov >= treecovpct(2) & treecov < treecovpct(3));
 avgtcov=zeros(length(cntrycodes),1);    %average tree cover per county, weighting for generating trade nodes
-for cc=1:length(orderccodes)
-    avgtcov(cc)=mean(treecov(ca_adm0 == orderccodes(cc)));
+for cc=1:length(nodeorder(:,1))
+    avgtcov(cc)=mean(treecov(ca_adm0 == nodeorder(cc,1)));
 end
 
 % Distance to coast and country borders
@@ -91,12 +138,12 @@ dcoast(cagrid_cntry==cntrynodataval)=NaN;
 dcoast(dcoast == dcoastnodataval)=NaN;
 dcoast_suit=1-dcoast./max(max(dcoast));
 
-[dbrdr,Rdbrdr]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\dbrdr_clp.tif');
-brdrnodataval=-9999;
-dbrdr(cagrid_cntry==cntrynodataval)=NaN;
-dbrdr(dbrdr == brdrnodataval)=NaN;
-dbrdr_suit=1-dbrdr./max(max(dbrdr));
-
+% [dbrdr,Rdbrdr]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\dbrdr_clp.tif');
+% brdrnodataval=-9999;
+% dbrdr(cagrid_cntry==cntrynodataval)=NaN;
+% dbrdr(dbrdr == brdrnodataval)=NaN;
+% dbrdr_suit=1-dbrdr./max(max(dbrdr));
+    
 % Population density as a proxy for remoteness
 [popden,Rpopden]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\popden_clp.tif');
 popnodataval=-1;
@@ -250,21 +297,36 @@ nodeslpsuit=0;
 nodemktsuit=0;
 nodelusuit=0;
 nodelsuit=0;
-nodequant=quantile(LANDSUIT(~isnan(LANDSUIT)),[0.025 0.25 0.50 0.75 0.99]);
-inodepick=find(LANDSUIT > nodequant(5));
-for i=1:length(cntrycodes)
-    icntry=find(ca_adm0 == orderccodes(i));
-    ipotnode=find(ismember(icntry,inodepick)==1);   %place nodes based on LANDSUIT
-    randnode=icntry(ipotnode(randperm(length(ipotnode),...
-        round(10*avgtcov(i)./median(avgtcov)))));
-    [nrow,ncol]=ind2sub(size(ca_adm0),randnode);
-    [nlat,nlon]=pix2latlon(Rcagrid_cntry,nrow,ncol);
+nodequant=quantile(LANDSUIT(~isnan(LANDSUIT)),[0.025 0.50 0.66 0.75 0.99]);
+inodepick=find(LANDSUIT > nodequant(4));
+% for i=1:length(cntrycodes)
+for i=1:length(dptcodes)
+%     icntry=find(ca_adm0 == nodeorder(i));
+%     ipotnode=find(ismember(icntry,inodepick)==1);   %place nodes based on LANDSUIT
+    idptmnt=find(dptgrid == nodeorder(i,1));
+    ipotnode=find(ismember(idptmnt,inodepick)==1);
+    % Select number of nodes per admin boundary based on drug intensity
+    % index
+    allocnodes=1;
+%     randnode=icntry(ipotnode(randperm(length(ipotnode),...
+%         round(10*avgtcov(i)./median(avgtcov)))));
+    if isempty(find(ipotnode,1)) == 1
+        subinodepick=find(LANDSUIT > nodequant(2));
+        ipotnode=find(ismember(idptmnt,subinodepick)==1);
+    end
+    randnode=idptmnt(ipotnode(randperm(max(length(ipotnode),1),...
+        allocnodes)));
+    
+%     [nrow,ncol]=ind2sub(size(ca_adm0),randnode);
+%     [nlat,nlon]=pix2latlon(Rcagrid_cntry,nrow,ncol);
+    [nrow,ncol]=ind2sub(size(dptgrid),randnode);
+    [nlat,nlon]=pix2latlon(Rdptgrid,nrow,ncol);
     nodeid=[nodeid length(nodeid)+(1:length(randnode))];
     noderow=[noderow; nrow];
     nodecol=[nodecol; ncol];
     nodelat=[nodelat; nlat];
     nodelon=[nodelon; nlon];
-    nodecode=[nodecode; orderccodes(i)*ones(length(randnode),1)];
+    nodecode=[nodecode; nodeorder(i,1)*ones(length(randnode),1)];
     nodestck=[nodestck; zeros(length(randnode),1)];
     nodecptl=[nodecptl; zeros(length(randnode),1)];
     nodetcov=[nodetcov; treecov(randnode)];
@@ -284,8 +346,10 @@ for i=1:length(cntrycodes)
         EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
             {'EndNodes' 'Weight' 'Flows' 'Capacity'});
     end
-    if i == length(cntrycodes)
-        inei=(nodecode == 23 | nodecode == 94);
+    if i == length(dptcodes)
+%     if i == length(cntrycodes)
+%         inei=(nodecode == 23 | nodecode == 94);
+        inei=ismember(nodecode,unique(dptgrid(ca_adm0 == 23 | ca_adm0 ==94)));
         snode=nodeid(inei)';
 %         snode=(length(nodeid)-(length(randnode)-1):length(nodeid))';
         tnode=(length(nodeid)+1)*ones(length(snode),1);
@@ -316,7 +380,7 @@ end
 NodeTable=table(nodeid',noderow,nodecol,nodelat,nodelon,nodecode,nodestck,...
     nodecptl,nodetcov,nodepopsuit,nodedcsuit,nodedbsuit,nodeslpsuit,...
     nodemktsuit,nodelusuit,nodelsuit,'VariableNames',{'ID','Row','Col','Lat',...
-    'Lon','CountryCode','Stock','Capital','TreeCover','PopSuit',...
+    'Lon','DeptCode','Stock','Capital','TreeCover','PopSuit',...
     'DistCoastSuit','DistBorderSuit','SlopeSuit','MktAccSuit','LandUseSuit',...
     'LandSuit'});
 nnodes=height(NodeTable);
@@ -383,7 +447,7 @@ for k=1:nnodes-1
     end
 end
 % Make sure all nodes connect to end node
-iendnode=NodeTable.ID(NodeTable.CountryCode == 2);
+iendnode=NodeTable.ID(NodeTable.DeptCode == 2);
 newedges=1:nnodes-1;
 nodechk=ismember(newedges,EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1)); %check for redundant edges
 newedges=newedges(~nodechk);
@@ -589,9 +653,9 @@ maizeyld=mazyld;
 maizeyld(isnan(mazyld))=predict(mazmdl,mktacc(isnan(mazyld)));
 maizeyld(luint == 8)=NaN;
 palmyld=plmyld;
-for cc=1:length(orderccodes)
-    palmyld(ca_adm0 == orderccodes(cc))=nanmean(plmyld(ca_adm0 == ...
-        orderccodes(cc)));
+for cc=1:length(nodeorder(:,1))
+    palmyld(ca_adm0 == nodeorder(cc,1))=nanmean(plmyld(ca_adm0 == ...
+        nodeorder(cc,1)));
 end
 palmyld(luint == 8)=NaN;
 cattleyld=ctlden;
@@ -623,7 +687,7 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-for t=TSTART+1:24
+for t=TSTART+1:30
     %%%%%% S&L and interdiction events %%%%%%
 %     %%% Fully random S&L events
 %     rndslevents=ones(size(ADJ));
@@ -787,8 +851,8 @@ toc     % stop run timer
 % % %%% Visualization %%%
 % 
 % %%% Trafficking movie
-writerObj = VideoWriter('trafficking_risk_v4short.mp4','MPEG-4');
-writerObj.FrameRate=10;
+writerObj = VideoWriter('trafficking_risk_v5ntwrk.mp4','MPEG-4');
+writerObj.FrameRate=3;
 open(writerObj);
 
 h1=figure;
@@ -948,11 +1012,16 @@ close(writerObj);
 % for i=1:length(nodelat)
 %         plot(nodelon(i),nodelat(i),'r.','MarkerSize',round(NodeTable.CoastDist(i)/10))
 % end
-%%% Plot time series of flows and S&L
-plot(1:t,STOCK(:,1:t),'-')
-hold on
-sltot=sum(sum(slsuccess(:,:,1:t),1));
-plot(1:t,reshape(sltot,1,t),'-')
+% %%% Plot time series of flows and S&L
+% plot(1:t,STOCK(1,1:t),'-b')
+% hold on
+% plot(1:t,STOCK(nnodes,1:t),'--k')
+% sltot=sum(sum(slsuccess(:,:,1:t),1));
+% plot(1:t,reshape(sltot,1,t),'--r')
+% xlim([0 t])
+% ylabel('Cocaine Volume kg/month')
+% xlabel('Month')
+% legend('Producer','Consumer','S&L','Orientation','horizontal','Location','southoutside')
 
 %%%%%% Diagnostics %%%%%%%
 slrecord=sum(slsuccess(:,:,1:t),3);
