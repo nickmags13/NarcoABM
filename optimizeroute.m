@@ -1,14 +1,15 @@
 %%%%%%% Top-down supply chain optimization %%%%%%%%
 function newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
-    subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstol)
+    subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstolval)
 
 allnodes=2:nnodes;
 iactiveedges=find(subflow > 0);
 [actrow,actcol]=ind2sub(size(subflow),iactiveedges);
 edgeparms=[subflow(iactiveedges) SLRISK(iactiveedges) iactiveedges actrow actcol];
-if supplyfit >= losstol   %need to consolidate supply chain
+if supplyfit >= losstolval   %need to consolidate supply chain
    edgesort=sortrows(edgeparms,-2); %refernce this array when removing edges
-   edgecut=1:length(iactiveedges)-ceil(length(iactiveedges)*supplyfit);   %calc how many edges need to be removed
+   edgecut=1:length(iactiveedges)-ceil(length(iactiveedges)*...
+       ((supplyfit-losstolval)/losstolval));   %calc how many edges need to be removed
    iedgecut=edgecut(edgesort(edgecut,2)> min(edgeparms(:,2)));
    if length(iedgecut) < length(edgecut)    % are there less high risk edges than need to be removed?
        %remove as many high risk edges that are greater than minimum risk
@@ -46,10 +47,10 @@ if supplyfit >= losstol   %need to consolidate supply chain
            subroutepref(edgesort(edgecut(j),3))=0;
        end
    end
-elseif supplyfit < losstol    %need to expand supply chain
+elseif supplyfit < losstolval    %need to expand supply chain
     potnodes=allnodes(~ismember(allnodes,activenodes));
-    edgeadd=1:min(max(floor(length(activenodes)*(1+(losstol-supplyfit)))-...
-        length(activenodes),1),length(potnodes));
+    edgeadd=1:min(max(floor(length(activenodes)*(1+(losstolval-supplyfit)/...
+        losstolval))-length(activenodes),1),length(potnodes));
 %     if length(potnodes) < length(edgeadd) || isempty(find(potnodes,1)) == 1
     if isempty(find(potnodes,1)) == 1
         display('No more nodes to expand')

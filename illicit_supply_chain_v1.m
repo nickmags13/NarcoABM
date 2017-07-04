@@ -242,11 +242,11 @@ LANDSUIT=tcwght.*treecov./100+brdwght.*dbrdr_suit+dcstwght.*dcoast_suit+...
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %%% Interdiction Agent %%%
 slprob_0=0.02;     % baseline probability of seisure and loss event
-slcpcty=30;         % assumed number of S&L events that can be carried out per time step
+slcpcty_0=30;         % assumed number of S&L events that can be carried out per time step
 delta_sl=0.5;      % reinforcement learning rate for S&L vents (i.e., weight on new information)
 losstol=0.9;        % tolerance threshold for loss due to S&L, triggers route fragmentation
 %%% Network Agent %%%
-stock_0=1000;     %initial cocaine stock at producer node
+stock_0=100;     %initial cocaine stock at producer node
 startvalue=385; %producer price, $385/kg
 deltavalue=8;   %added value for distance traveled $8/kilo/km
 nodeloss=0;     % amount of cocaine that is normally lost (i.e., non-interdiction) at each node
@@ -342,7 +342,7 @@ for i=1:length(dptcodes)
         tnode=(1+(1:length(randnode)))';
         weights=ones(length(randnode),1);
         flows=ones(length(randnode),1);
-        cpcty=stock_0*ones(length(randnode),1); %currently all the same capacity, but could introduce heterogeneity
+        cpcty=2*stock_0*ones(length(randnode),1); %currently all the same capacity, but could introduce heterogeneity
         EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
             {'EndNodes' 'Weight' 'Flows' 'Capacity'});
     end
@@ -371,7 +371,7 @@ for i=1:length(dptcodes)
         nodelsuit=[nodelsuit; 0];
         weights=ones(length(snode),1);
         flows=ones(length(snode),1);
-        cpcty=stock_0*ones(length(snode),1);
+        cpcty=2*stock_0*ones(length(snode),1);
         EdgeTable=table([EdgeTable.EndNodes; snode tnode],[EdgeTable.Weight; ...
             weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
             'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -395,7 +395,8 @@ CPCTY=zeros(nnodes);     % maximum flow possible between nodes
 CTRANS=zeros(nnodes);   % transportation costs between nodes
 RMTFAC=zeros(nnodes);   % landscape factor (remoteness) influencing S&L risk
 COASTFAC=zeros(nnodes);   % landscape factor (distance to coast) influencing S&L risk
-rentcap=0.3*ones(nnodes,1);     % proportion of value of shipments 'captured' by nodes
+LATFAC=zeros(nnodes);   % decreased likelihood of S&L moving north to reflect greater DTO investment
+rentcap=0.4*ones(nnodes,1);     % proportion of value of shipments 'captured' by nodes
 
 routepref=zeros(nnodes,nnodes,TMAX);   % weighting by network agent of successful routes
 slevent=zeros(nnodes,nnodes,TMAX);  % occurrence of S&L event
@@ -415,6 +416,7 @@ LEAK=zeros(nnodes,TMAX);        % dynamic amount of cocaine leaked at each node
 activeroute=cell(nnodes,TMAX);  % track active routes
 avgslrisk=cell(nnodes,TMAX);    % average S&L risk at each node given active routes
 totslrisk=zeros(1,TMAX);        % network-wide average S&L risk
+slcpcty=zeros(1,TMAX);
 for k=1:nnodes-1
     if k == 1
         newedges=2:nnodes;
@@ -422,7 +424,7 @@ for k=1:nnodes-1
         newedges=newedges(~nodechk);
         weights=ones(length(newedges),1);
         flows=ones(length(newedges),1);
-        cpcty=stock_0*ones(length(newedges),1);
+        cpcty=2*stock_0*ones(length(newedges),1);
         EdgeTable=table([EdgeTable.EndNodes; k*ones(length(newedges),1) newedges'],...
             [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
             'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -437,7 +439,7 @@ for k=1:nnodes-1
         newedges=newedges(~nodechk);
         weights=ones(length(newedges),1);
         flows=ones(length(newedges),1);
-        cpcty=stock_0*ones(length(newedges),1);
+        cpcty=2*stock_0*ones(length(newedges),1);
         EdgeTable=table([EdgeTable.EndNodes; k*ones(length(newedges),1) newedges'],...
             [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
             'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -453,7 +455,7 @@ nodechk=ismember(newedges,EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1
 newedges=newedges(~nodechk);
 weights=ones(length(newedges),1);
 flows=ones(length(newedges),1);
-cpcty=stock_0*ones(length(newedges),1);
+cpcty=2*stock_0*ones(length(newedges),1);
 EdgeTable=table([EdgeTable.EndNodes; newedges' iendnode*ones(length(newedges),1)],...
     [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
     'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
@@ -475,7 +477,8 @@ coastdist=dcoast(icoastdist);  %convert to km
 NodeTable.CoastDist=coastdist;
 % coastfac=2-NodeTable.CoastDist(:)./max(NodeTable.CoastDist(:));
 coastfac=[0; NodeTable.CoastDist(2:nnodes-1)./max(NodeTable.CoastDist(:)); 0];
-
+nwvec=sqrt(0.9.*NodeTable.Lat(2:nnodes-1).^2+0.1.*NodeTable.Lon(2:nnodes-1).^2);
+latfac=[0; 1-nwvec./max(nwvec); 0];
 % Create adjacency matrix (without graph toolbox)
 ADJ(EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1),iendnode)=1;
 iedge=find(ADJ == 1);
@@ -502,7 +505,7 @@ for j=1:nnodes
     end
     RMTFAC(j,ADJ(j,:)==1)=remotefac(ADJ(j,:)==1);
     COASTFAC(j,ADJ(j,:)==1)=coastfac(ADJ(j,:)==1);
-    
+    LATFAC(j,ADJ(j,:)==1)=latfac(ADJ(j,:)==1);
     % Transportation costs
     idist_ground=(DIST(j,:)  >0 & DIST(j,:) <= 500);
     idist_air=(DIST(j,:) > 500);
@@ -528,9 +531,13 @@ end
 
 
 %%% Initialize Interdiction agent
+facmat=LATFAC;
+facmat(:,:,2)=COASTFAC;
+facmat(:,:,3)=RMTFAC;
 % SLPROB(:,:,TSTART)=max(min((COASTFAC./max(max(COASTFAC))).*...
 %     (RMTFAC./max(max(RMTFAC))).*(DIST./max(max(DIST))),1),0);
-SLPROB(:,:,TSTART)=max(min(COASTFAC.*RMTFAC+(DIST./max(max(DIST))),1),0);   % dynamic probability of seisure and loss at edges
+SLPROB(:,:,TSTART)=max(min(max(facmat,[],3)+DIST./max(max(DIST)),1),0);   % dynamic probability of seisure and loss at edges
+slmin=SLPROB(:,:,TSTART);
 SLPROB(:,:,TSTART+1)=SLPROB(:,:,TSTART);
 INTRDPROB(:,TSTART+1)=slprob_0*ones(nnodes,1); % dynamic probability of interdiction at nodes
 
@@ -538,6 +545,7 @@ INTRDPROB(:,TSTART+1)=slprob_0*ones(nnodes,1); % dynamic probability of interdic
 STOCK(:,TSTART)=NodeTable.Stock(:);
 TOTCPTL(:,TSTART)=NodeTable.Capital(:);
 PRICE(:,TSTART+1)=PRICE(:,TSTART);
+slcpcty(TSTART+1)=slcpcty_0;
 
 %%% Set-up node and network risk perceptions
 % SLRISK(:,:)=(DIST./max(max(DIST)));
@@ -687,19 +695,19 @@ MOV=zeros(nnodes,nnodes,TMAX);
 %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-for t=TSTART+1:30
+for t=TSTART+1:TMAX
     %%%%%% S&L and interdiction events %%%%%%
 %     %%% Fully random S&L events
 %     rndslevents=ones(size(ADJ));
 %     rndslevents(iedge(randperm(length(iedge),slcpcty)))=rand(slcpcty,1);
 %     slevent(:,:,t)=(SLPROB(:,:,t) > rndslevents);
-    %%% Random number of events, selection of highest probability nodes (in addition to p=1) 
-    rndslevents=ceil(slcpcty*rand(1));
+    %%% Specified number of events, selection of highest probability nodes (in addition to p=1) 
+%     newslevents=ceil(slcpcty(t)*rand(1));
     subslevent=slevent(:,:,t);
     subslprob=reshape(SLPROB(:,:,t),nnodes*nnodes,1);
 %     subslprob=subslprob(subslprob~=1);
     [subslprobsort,isubslprobsort]=sort(subslprob,'descend');
-    islevent=isubslprobsort(1:length(find(subslprob==1))+rndslevents);
+    islevent=isubslprobsort(1:length(find(subslprob==1))+slcpcty(t));
 %     islevent=find(ismember(SLPROB(:,:,t),subslprobsort(1:rndslevents))==1);
     subslevent(islevent)=1;
     slevent(:,:,t)=subslevent;
@@ -749,7 +757,8 @@ for t=TSTART+1:30
          end
 
          %%% !!! Put checks in to make sure buying node has enough capital
-         FLOW(n,inei,t)=min(floor(WGHT(n,inei).*(STOCK(n,t)/length(inei))),CPCTY(n,inei));
+%          FLOW(n,inei,t)=min(floor(WGHT(n,inei).*(STOCK(n,t)/length(inei))),CPCTY(n,inei));
+         FLOW(n,inei,t)=min(WGHT(n,inei).*(STOCK(n,t)/length(inei)),CPCTY(n,inei));
          % Check for S%L event
          if isempty(find(ismember(find(slevent(n,:,t)),inei),1)) == 0
              isl=(slevent(n,inei,t)==1);
@@ -808,8 +817,20 @@ for t=TSTART+1:30
     end
     totslrisk(t+1)=mean(cat(2,avgslrisk{:,t}));
     %%% Updating interdiction event probability
-    SLPROB(:,:,t+1)=max((1-delta_sl).*SLPROB(:,:,t)+delta_sl.*...
-        (slsuccess(:,:,t)./max(max(slsuccess(:,:,t)))),SLPROB(:,:,TSTART));
+    subslsuc=slsuccess(:,:,t);
+    subslprob=SLPROB(:,:,t);
+    islcheck=(slevent(:,:,t) == 1);
+%     SLPROB(:,:,t+1)=max((1-delta_sl).*SLPROB(:,:,t)+delta_sl.*...
+%         (slsuccess(:,:,t)./max(max(slsuccess(:,:,t)))),SLPROB(:,:,TSTART));
+    subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
+        (subslsuc(islcheck) > 0),slmin(islcheck));
+    SLPROB(:,:,t+1)=subslprob;
+    %%% Eventually, this should be tied to perception of negative
+    %%% consequences of trafficking (e.g., violence, lost profits from
+    %%% licit markets, etc.)
+    slcpcty(t+1)=max(slcpcty(t)+ceil(delta_sl*(sum(sum(slsuccess(:,:,t)))-...
+        sum(sum(slsuccess(:,:,t-1))))),slcpcty_0);
+    
     INTRDPROB(:,t+1)=INTRDPROB(:,t);
     
     % Reinforcement learning for successful routes
@@ -832,15 +853,25 @@ for t=TSTART+1:30
 
     subroutepref=routepref(:,:,t);
     activenodes=unique(cat(1,activeroute{:,t}));
-    supplyfit=STOCK(iendnode,t)/stock_0;
     subflow=FLOW(:,:,t);
-%     margprofit=ADDVAL-CTRANS;
+    %%% calculate losses from S&L events
+    % volume-based - does not matter where in supply chain
+%     supplyfit=STOCK(iendnode,t)/stock_0;
+%     losstolval=losstol*stock_0;
 
+    % value-based - price varies with location in supply chain
+    ipossl=find(slsuccess(:,:,t)>0);
+    [nrow,ncol]=ind2sub(size(slsuccess(:,:,t)),ipossl);
+%     supplyfit=PRICE(nnodes,t)*(STOCK(iendnode,t)/stock_0);
+    supplyfit=stock_0*PRICE(nnodes,t)-sum(subslsuc(ipossl).*PRICE(ncol,t));  %value-based loss calc
+    losstolval=losstol*stock_0*PRICE(nnodes,t); %value-based loss threshold
+    
     %call top-down route optimization
     newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
-        subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstol);
+        subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstolval);
     routepref(:,:,t+1)=newroutepref;
 
+    PRICE(:,t+1)=PRICE(:,t);
     STOCK(1,t+1)=stock_0;    %additional production to enter network next time step
     STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step
     NodeTable.Stock(1)=stock_0;
@@ -851,7 +882,7 @@ toc     % stop run timer
 % % %%% Visualization %%%
 % 
 % %%% Trafficking movie
-writerObj = VideoWriter('trafficking_risk_v5ntwrk.mp4','MPEG-4');
+writerObj = VideoWriter('trafficking_risk_v6ntwrk.mp4','MPEG-4');
 writerObj.FrameRate=3;
 open(writerObj);
 
@@ -862,7 +893,7 @@ for tt=TSTART+1:t
     geoshow(CAadm0,'FaceColor',[1 1 1])
     hold on
     %     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,tt)/1000))
-    plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(stock_0/10))
+    plot(nodelon(1),nodelat(1),'r.','MarkerSize',stock_0)
 %     fedge=find(FLOW(1,:,tt) > 0);
     fedge=activeroute{1,tt};
     %
@@ -907,7 +938,7 @@ for tt=TSTART+1:t
             hold on
             for nn=1:nnodes
                 if MOV(nn,mm,tt) > 0
-                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./10))
+                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)))
                 else
                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
                 end
@@ -922,7 +953,7 @@ for tt=TSTART+1:t
             hold on
             for nn=1:nnodes
                 if MOV(nn,mm,tt) > 0
-                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)./10))
+                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)))
                 else
                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
                 end
@@ -947,7 +978,7 @@ for tt=TSTART+1:t
                 plot([nodelon(mm); nodelon(fedge(islevent(g)))],[nodelat(mm); ...
                     nodelat(fedge(islevent(g)))],'-k')
                 plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),...
-                    'kx','MarkerSize',ceil(slsuccess(mm,fedge(islevent(g)),tt)./10))
+                    'kx','MarkerSize',ceil(slsuccess(mm,fedge(islevent(g)),tt)))
                 end
                 for k=1:length(fedge(inoslevent))
                     plot([nodelon(mm); nodelon(fedge(inoslevent(k)))],...
@@ -1012,21 +1043,37 @@ close(writerObj);
 % for i=1:length(nodelat)
 %         plot(nodelon(i),nodelat(i),'r.','MarkerSize',round(NodeTable.CoastDist(i)/10))
 % end
-% %%% Plot time series of flows and S&L
+%%% Plot time series of flows and S&L
 % plot(1:t,STOCK(1,1:t),'-b')
-% hold on
-% plot(1:t,STOCK(nnodes,1:t),'--k')
-% sltot=sum(sum(slsuccess(:,:,1:t),1));
-% plot(1:t,reshape(sltot,1,t),'--r')
-% xlim([0 t])
-% ylabel('Cocaine Volume kg/month')
-% xlabel('Month')
-% legend('Producer','Consumer','S&L','Orientation','horizontal','Location','southoutside')
+h2=figure;
+plot(1:t,STOCK(nnodes,1:t),'--k')
+hold on
+sltot=sum(sum(slsuccess(:,:,1:t),1));
+plot(1:t,reshape(sltot,1,t),'-r')
+xlim([0 t])
+ylabel('Cocaine Volume kg/month')
+xlabel('Month')
+legend('Consumer','S&L','Orientation','horizontal','Location','southoutside')
 
 %%%%%% Diagnostics %%%%%%%
 slrecord=sum(slsuccess(:,:,1:t),3);
 [slr,slc]=ind2sub(size(slrecord),find(slrecord > 0));
 
+nactnodes=zeros(1,TMAX);
+for z=1:TMAX
+    nactnodes(z)=length(cat(1,activeroute{:,z}));
+end 
+h2_1=figure;
+set(h2_1,'Color','white')
+plot(1:TMAX,nactnodes./nnodes,'-b')
+hold on
+sltot=sum(sum(slevent(:,:,1:TMAX),1))./nnodes;
+plot(1:TMAX,reshape(sltot,1,TMAX),'--r')
+xlim([0 TMAX])
+ylabel('Number of Routes/SL Events')
+xlabel('Month')
+legend('Active Routes per Node','S&L per Node','Orientation','horizontal','Location','southoutside')
+% saveas(h2_1,'Nodes_vs_SL_null.png')
 
 % %%% Command to use
 % % digraph, maxflow, nearest
