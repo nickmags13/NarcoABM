@@ -1060,19 +1060,38 @@ slrecord=sum(slsuccess(:,:,1:t),3);
 [slr,slc]=ind2sub(size(slrecord),find(slrecord > 0));
 
 nactnodes=zeros(1,TMAX);
+nslsuccess=zeros(1,TMAX);
+slperevent=zeros(1,TMAX);
 for z=1:TMAX
     nactnodes(z)=length(cat(1,activeroute{:,z}));
+    subslsccss=slsuccess(:,:,z);
+    nslsuccess(z)=length(find(subslsccss > 0));
+    if isempty(find(subslsccss > 0,1)) == 0
+        slperevent(z)=mean(subslsccss(subslsccss > 0)./...
+            length(find(subslsccss > 0)));
+    else
+        slperevent(z)=0;
+    end
 end 
 h2_1=figure;
 set(h2_1,'Color','white')
-plot(1:TMAX,nactnodes./nnodes,'-b')
-hold on
-sltot=sum(sum(slevent(:,:,1:TMAX),1))./nnodes;
-plot(1:TMAX,reshape(sltot,1,TMAX),'--r')
+[hAx,hl1,hl2]=plotyy(1:TMAX,nactnodes,1:TMAX,slperevent);
+% plot(1:TMAX,nactnodes,'-b')
+ylabel(hAx(1),'Number of Routes')
+% hold on
+% yyaxis right
+% plot(1:TMAX,slpervent,'--r')
+ylabel(hAx(2),'Average S&L Volume (kg)')
 xlim([0 TMAX])
-ylabel('Number of Routes/SL Events')
 xlabel('Month')
-legend('Active Routes per Node','S&L per Node','Orientation','horizontal','Location','southoutside')
+legend('Active Routes','S&L Volume','Orientation','horizontal','Location','southoutside')
+
+% sltot=sum(sum(slevent(:,:,1:TMAX),1));
+% plot(1:TMAX,reshape(sltot,1,TMAX),'--r')
+% xlim([0 TMAX])
+% ylabel('Number of Routes & SL Events')
+% xlabel('Month')
+% legend('Active Routes','S&L Events','Orientation','horizontal','Location','southoutside')
 % saveas(h2_1,'Nodes_vs_SL_null.png')
 
 % %%% Command to use
