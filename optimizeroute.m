@@ -49,8 +49,8 @@ if supplyfit >= losstolval   %need to consolidate supply chain
    end
 elseif supplyfit < losstolval    %need to expand supply chain
     potnodes=allnodes(~ismember(allnodes,activenodes));
-    edgeadd=1:min(max(floor(length(activenodes)*(1+(losstolval-supplyfit)/...
-        losstolval))-length(activenodes),1),length(potnodes));
+    edgeadd=1:min(max(ceil(length(activenodes)*(1+(losstolval-supplyfit)/...
+        supplyfit))-length(activenodes),1),length(potnodes));
 %     if length(potnodes) < length(edgeadd) || isempty(find(potnodes,1)) == 1
     if isempty(find(potnodes,1)) == 1
         display('No more nodes to expand')

@@ -46,6 +46,10 @@ dptnodataval=-9999;
 [protarea,Rprotarea]=geotiffread('X:\CentralAmericaData\Model_inputs\ca_WDPA_250.tif');
 protnodataval=255;
 
+% Land Prices
+[landprice,Rlandprice]=geotiffread('X:\CentralAmericaData\Model_inputs\landprices.tif');
+lndprcnodataval=255;
+
 %%% Reconcile to slope because it is the smallest raster
 firstrowlat=Rslope.LatitudeLimits(2);
 lastrowlat=Rslope.LatitudeLimits(1);
@@ -218,3 +222,19 @@ protareadim=size(protarea);
 protarea=protarea(1+max(topdiff,0):protareadim(1)-max(bottomdiff,0),...
     1-min(leftdiff,0):protareadim(2)+rghtdiff);
 geotiffwrite('X:\CentralAmericaData\Model_inputs\clipped\protarea_clp.tif',protarea,Rslope);
+
+% Distance to coast
+topdiff=round((Rlandprice.LatitudeLimits(2)-firstrowlat)/cellext);
+topadd=min(topdiff,0);
+bottomdiff=round((lastrowlat-Rlandprice.LatitudeLimits(1))/cellext);
+btmadd=min(bottomdiff,0);
+leftdiff=round((Rlandprice.LongitudeLimits(1)-firstcollon)/cellext);
+lftadd=max(leftdiff,0);
+rghtdiff=round((lastcollon-Rlandprice.LongitudeLimits(2))/cellext);
+rghtadd=max(rghtdiff,0);
+landpricedim=size(landprice);
+landprice=landprice(1+max(topdiff,0):landpricedim(1)-max(bottomdiff,0),...
+    1-min(leftdiff,0):landpricedim(2)+rghtdiff);
+geotiffwrite('X:\CentralAmericaData\Model_inputs\clipped\landprice_clp.tif',...
+    landprice,Rslope);
+
