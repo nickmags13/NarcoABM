@@ -159,7 +159,7 @@ manodataval=-9999;
 mktacc=double(mktacc);
 mktacc(cagrid_cntry==cntrynodataval)=NaN;
 mktacc(mktacc == manodataval)=NaN;
-mktacc_suit=zeros(size(mktacc));
+mktacc_suit=mktacc;
 % submasuit=mktacc./median(mktacc(~isnan(mktacc)));
 
 % Maize Yield
@@ -228,11 +228,11 @@ invst_suit(luint == 3 | luint == 5)=0.75;
 invst_suit(luint == 4)=1;
 
 %%% Weight each landscape attribute
-tcwght=0;       % tree cover
-brdwght=0;      % distance to country border
-dcstwght=0;     % distance to coast
-mktwght=1;      % market access
-popwght=1;      % population density - proxy for remoteness
+tcwght=1;       % tree cover
+brdwght=1;      % distance to country border
+dcstwght=0.5;     % distance to coast
+mktwght=1;      % market access - proxy for remoteness
+popwght=0;      % population density 
 slpwght=1;      % slope-constrained land suitability
 luwght=1;       % suitability based on initial land use
 invstwght=1;    % investment potential of initial land use
@@ -241,15 +241,15 @@ protwght=1;         % protected area
 wghts=[tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]./...
     sum([tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]);
 
-%%% Null Model
-LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
-    wghts(4).*mktacc_suit+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
-    lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
-
-% %%% Narco model
+% %%% Null Model
 % LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
-%     wghts(4).*(1-mktacc_suit)+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
+%     wghts(4).*mktacc_suit+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
 %     lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
+
+% %%% Full model
+LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
+    wghts(4).*(1-mktacc_suit)+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
+    lu_suit+wghts(7).*invst_suit+wghts(8)*protsuit;  % land suitability based on biophysical and narco variable predictors
 
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %@@@@@@@@@@ Agent Attributes @@@@@@@@@@@@
@@ -481,8 +481,8 @@ EdgeTable=table([EdgeTable.EndNodes; newedges' iendnode*ones(length(newedges),1)
 %%% Node Attributes
 % forest cover as proxy for remoteness; the higher the forest cover, the
 % more remote and lower the S&L risk. Start and end node unchanged.
-% remotefac=[0; 1-NodeTable.PopSuit(NodeTable.PopSuit~=0); 0];
-remotefac=[0; 1-NodeTable.PopSuit(2:nnodes-1); 0];
+remotefac=[0; 1-NodeTable.TreeCover(2:nnodes-1); 0];
+% remotefac=[0; 1-NodeTable.PopSuit(2:nnodes-1); 0];
 % proximity to the coast also increases risk of S&L event
 % Find node distance to coast
 % lats_in=NodeTable.Lat;
@@ -1010,7 +1010,7 @@ for t=TSTART+1:TMAX
             if LUPROD(NodeTable.Row(n),NodeTable.Col(n),2) > 0 && ...
                     TOTCPTL(n,t) >= cropthresh && ...
                     NodeTable.MktAccSuit(n) >= 0.05 && ...
-                    length(find(sublu(IOWN{n,lt-1}) == 7)) >= minsize(10)
+                    length(find(sublu(IOWN{n,max(lt-1,1)}) == 7)) >= minsize(10)
                 % row crop land use
 %                 icropcells=find(neihood <= proxcells(cropminsize) & ...
 %                     subcropprod(~isnan(subcropprod)));
@@ -1020,7 +1020,7 @@ for t=TSTART+1:TMAX
                     (1+discount).^(1:25)))/sum(cropcost*ones(minsize(2),1)),0);
                 cropecon=cropscale*1/(1+(length(icropcells)-minsize(2)));
                 pland=landprice(icropcells);
-                pland(ismember(icropcells,IOWN{n,lt-1}))=0;
+                pland(ismember(icropcells,IOWN{n,max(lt-1,1)}))=0;
                 cellprod=subcropprod(icropcells)-pland-...
                     cropecon*lucost(isublu(icropcells),2);
                 potcropprod=[icropcells iluse(2)*ones(length(icropcells),1) ...
@@ -1036,7 +1036,7 @@ for t=TSTART+1:TMAX
             if LUPROD(NodeTable.Row(n),NodeTable.Col(n),5) > 0 && ...
                     TOTCPTL(n,t) >= palmthresh && ...
                     NodeTable.MktAccSuit(n) >= 0.05 && ...
-                    length(find(sublu(IOWN{n,lt-1}) == 7)) >= minsize(10)
+                    length(find(sublu(IOWN{n,max(lt-1,1)}) == 7)) >= minsize(10)
                 % plantation (palm oil) land use
 %                 iplntcells=find(neihood <= proxcells(minsize(5)) & ...
 %                     subplntprod(~isnan(subplntprod)));
@@ -1046,7 +1046,7 @@ for t=TSTART+1:TMAX
                     (1+discount).^(1:25)))/sum(plntcost*ones(minsize(5),1)),0);
                 plntecon=plntscale*1/(1+(length(iplntcells)-minsize(5)));
                 pland=landprice(iplntcells);
-                pland(ismember(iplntcells,IOWN{n,lt-1}))=0;
+                pland(ismember(iplntcells,IOWN{n,max(lt-1,1)}))=0;
                 cellprod=subplntprod(iplntcells)-pland-...
                     plntecon*lucost(isublu(iplntcells),5);
                 potplntprod=[iplntcells iluse(5)*ones(length(iplntcells),1) ...
@@ -1070,7 +1070,7 @@ for t=TSTART+1:TMAX
                     (1+discount).^(1:25)))/sum(lvstckcost*ones(minsize(7),1)),0);
                 ctlecon=ctlscale*1/(1+(length(ictlcells)-minsize(7)));
                 pland=landprice(ictlcells);
-                pland(ismember(ictlcells,IOWN{n,lt-1}))=0;
+                pland(ismember(ictlcells,IOWN{n,max(lt-1,1)}))=0;
                 cellprod=subctlprod(ictlcells)-pland-...
                     ctlecon*lucost(isublu(ictlcells),7);
                 potctlprod=[ictlcells iluse(7)*ones(length(ictlcells),1) ...
@@ -1085,11 +1085,11 @@ for t=TSTART+1:TMAX
             
             %%% Add road building decision
             if NodeTable.RoadFlag(n) == 0 && TOTCPTL(n,t) >= roadcost && ...
-                    length(find(sublu(IOWN{n,lt-1}) == 7)) >= minsize(10)
+                    length(find(sublu(IOWN{n,max(lt-1,1)}) == 7)) >= minsize(10)
                 display('Check extent of cleared land')
                 NodeTable.RoadFlag(n)=1;
                 NodeTable.MktAccSuit(n)=max(0.05,NodeTable.MktAccSuit(n));
-                keyboard
+%                 keyboard
             end
             
             if isempty(find(potprod,1)) == 1
@@ -1117,9 +1117,9 @@ for t=TSTART+1:TMAX
                     length(subprod)+size(potprod(imaxlu,[1 2 4 5 6 7]),1),...
                     size(potprod(imaxlu,[1 2 4 5 6 7]),2));   %[cellid,new lu,scalefac,profit,yield,cost]
                 sublu(potprod(imaxlu,1))=potprod(imaxlu,2);
-                iadd2own=~ismember(potprod(imaxlu,1),IOWN{n,lt-1});
-                IOWN(n,lt)=mat2cell([IOWN{n,lt-1}; potprod(imaxlu(iadd2own),...
-                    1)],length(IOWN{n,lt-1})+size(potprod(imaxlu(iadd2own),...
+                iadd2own=~ismember(potprod(imaxlu,1),IOWN{n,max(lt-1,1)});
+                IOWN(n,lt)=mat2cell([IOWN{n,max(lt-1,1)}; potprod(imaxlu(iadd2own),...
+                    1)],length(IOWN{n,max(lt-1,1)})+size(potprod(imaxlu(iadd2own),...
                     [1 2 4 5 6 7]),1));
             elseif isempty(find(subprod(:,2) == maxlu,1)) == 0
                 %pick highest profit and max cost cells
@@ -1129,9 +1129,9 @@ for t=TSTART+1:TMAX
                     length(subprod(:,1))+size(potprod(imaxlu(ichoose),[1 2 4 5 6 7]),1),...
                     size(potprod(imaxlu(ichoose),[1 2 4 5 6 7]),2));   %[cellid,new lu,scalefac,profit,yield,cost]
                 sublu(potprod(imaxlu(ichoose),1))=potprod(imaxlu(ichoose),2);
-                iadd2own=~ismember(potprod(imaxlu(ichoose),1),IOWN{n,lt-1});
-                IOWN(n,lt)=mat2cell([IOWN{n,lt-1}; ...
-                    potprod(imaxlu(ichoose(iadd2own)),1)],length(IOWN{n,lt-1})+...
+                iadd2own=~ismember(potprod(imaxlu(ichoose),1),IOWN{n,max(lt-1,1)});
+                IOWN(n,lt)=mat2cell([IOWN{n,max(lt-1,1)}; ...
+                    potprod(imaxlu(ichoose(iadd2own)),1)],length(IOWN{n,max(lt-1,1)})+...
                     size(potprod(imaxlu(ichoose(iadd2own)),[1 2 4 5 6 7]),1));
             end
             LU(:,:,lt+1)=sublu;
@@ -1148,8 +1148,8 @@ for t=TSTART+1:TMAX
         end
     end
 end
-cd X:\model_results\NarcoLogic_null_070417
-save('narcologic_results_null_070417','EdgeTable','NodeTable','LU','MOV','FLOW',...
+cd X:\model_results\NarcoLogic_full_070417
+save('narcologic_results_full_070417','EdgeTable','NodeTable','LU','MOV','FLOW',...
     'TOTCPTL','ICPTL','LCPTL','slsuccess','PROD','LUPROD','activeroute','STOCK','-v7.3')
 
 toc     % stop run timer
@@ -1396,7 +1396,7 @@ xlim([0 TMAX])
 ylabel('Cocaine Volume kg/month')
 xlabel('Month')
 legend('Consumer','S&L','Orientation','horizontal','Location','southoutside')
-saveas(h1_1,'Flows_vs_SL_null.png')
+saveas(h1_1,'Flows_vs_SL_full.png')
 % 
 % %%%%%% Diagnostics %%%%%%%
 % slrecord=sum(slsuccess(:,:,1:t),3);
@@ -1436,17 +1436,20 @@ for lt=2:(size(activeroute,2)/12)+1
     LUCMAP(:,:,lt)=sublucmap;
 end
 imagesc(LUCMAP(:,:,lt));
-clrmap=[1 1 1;  %built-up, nodata
+clrmap=[0 0 0;  %nodata
+    1 1 1;  %built-up 
     0 1 0;  %crop
     1 1 1;  %placeholder
     0.2 0.5 0.2;    %forest
-    0.7 1 0;    %pasture
+    1 1 0.5;    %pasture
     1 1 1;  %placeholder
-    1 0 1;  %plantation
-    0 0 1]; %water
+    1 0 1;  %plantation   
+    0 0 1;%water
+    1 1 0.5];%livestock
+
 colormap(clrmap);
 set(gca,'Visible','off')
-saveas(h1_2,'LUmap_null.png')
+saveas(h1_2,'LUmap_full.png')
 
 %%% Plot time series of active nodes
 nactnodes=zeros(1,TMAX);
@@ -1475,7 +1478,7 @@ ylabel(hAx(2),'Average S&L Volume (kg)')
 xlim([0 TMAX])
 xlabel('Month')
 legend('Active Routes','S&L Volume','Orientation','horizontal','Location','southoutside')
-% saveas(h2_1,'Nodes_vs_SL_null.png')
+saveas(h2_1,'Nodes_vs_SL_full.png')
 
 % %%% Command to use
 % % digraph, maxflow, nearest
