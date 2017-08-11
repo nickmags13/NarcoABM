@@ -140,8 +140,8 @@ popden(popden == popnodataval)=NaN;
 popq=quantile(reshape(popden,size(popden,1)*size(popden,2),1),...
     [0.25 0.5 0.75 0.95]);
 pop_suit=zeros(size(popden));
-pop_suit(popden > popq(4))=0;
-pop_suit(popden <= popq(4))=1-popden(popden <= popq(4))./popq(4);
+pop_suit(popden > popq(3))=0;
+pop_suit(popden <= popq(3))=1-popden(popden <= popq(3))./popq(3);
 
 % Topography
 [slope,Rslope]=geotiffread('X:\CentralAmericaData\Model_inputs\ca_slope_250m.tif');
@@ -228,37 +228,36 @@ invst_suit(luint == 3 | luint == 5)=0.75;
 invst_suit(luint == 4)=1;
 
 %%% Weight each landscape attribute
-tcwght=1;       % tree cover
-brdwght=1;      % distance to country border
-dcstwght=0.5;     % distance to coast
+tcwght=0;       % tree cover
+brdwght=0;      % distance to country border
+dcstwght=0;     % distance to coast
 mktwght=1;      % market access - proxy for remoteness
-popwght=0;      % population density 
+popwght=1;      % population density 
 slpwght=1;      % slope-constrained land suitability
-luwght=1;       % suitability based on initial land use
-invstwght=1;    % investment potential of initial land use
+luwght=0;       % suitability based on initial land use
+invstwght=0;    % investment potential of initial land use
 protwght=1;         % protected area
 
 wghts=[tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]./...
     sum([tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]);
 
-% %%% Null Model
-% LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
-%     wghts(4).*mktacc_suit+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
-%     lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
-
-% %%% Full model
+%%% Null Model
 LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
-    wghts(4).*(1-mktacc_suit)+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
-    lu_suit+wghts(7).*invst_suit+wghts(8)*protsuit;  % land suitability based on biophysical and narco variable predictors
+    wghts(4).*mktacc_suit+wghts(5).*(1-pop_suit)+wghts(6).*slp_suit+wghts(6).*...
+    lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
+
+% % %%% Full model
+% LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
+%     wghts(4).*(1-mktacc_suit)+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
+%     lu_suit+wghts(7).*invst_suit+wghts(8)*protsuit;  % land suitability based on biophysical and narco variable predictors
 
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %@@@@@@@@@@ Agent Attributes @@@@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %%% Interdiction Agent %%%
 slprob_0=0.02;     % baseline probability of seisure and loss event
-slcpcty_0=30;         % assumed number of S&L events that can be carried out per time step
 delta_sl=0.5;      % reinforcement learning rate for S&L vents (i.e., weight on new information)
-losstol=0.9;        % tolerance threshold for loss due to S&L, triggers route fragmentation
+
 %%% Network Agent %%%
 stock_0=100;     %initial cocaine stock at producer node
 startvalue=385; %producer price, $385/kg
@@ -271,6 +270,8 @@ delta_rt=0.5;       % reinforcement learning rate for network agent
                     % note: faster learning rate than for interdiction
                     % agent
 
+losstol=0.9;        % tolerance threshold for loss due to S&L, triggers route fragmentation
+lndrlosstol=0.3;    % loss tolerance from laundering activities, personal communication Nielson
 % Set-up producer and end supply nodes
 strow=size(ca_adm0,1);
 stcol=size(ca_adm0,2);
@@ -283,7 +284,7 @@ pend=geopoint(endlat,endlon,'NodeName',{'End Node'});
 
 %%% Nodes agents %%%
 % perceived risk model
-alpharisk=0.001;  %baseline
+alpharisk=2;  %baseline is 0.001
 timewght_0=0.91;     %time discounting for subjective risk perception (Gallagher, 2014), range[0,1.05]
 % betarisk=alpharisk/slprob_0-alpharisk;
 betarisk=0.5;
@@ -481,8 +482,8 @@ EdgeTable=table([EdgeTable.EndNodes; newedges' iendnode*ones(length(newedges),1)
 %%% Node Attributes
 % forest cover as proxy for remoteness; the higher the forest cover, the
 % more remote and lower the S&L risk. Start and end node unchanged.
-remotefac=[0; 1-NodeTable.TreeCover(2:nnodes-1); 0];
-% remotefac=[0; 1-NodeTable.PopSuit(2:nnodes-1); 0];
+% remotefac=[0; 1-NodeTable.TreeCover(2:nnodes-1)./100; 0];
+remotefac=[0; 1-NodeTable.PopSuit(2:nnodes-1); 0];
 % proximity to the coast also increases risk of S&L event
 % Find node distance to coast
 % lats_in=NodeTable.Lat;
@@ -579,6 +580,8 @@ INTRDPROB(:,TSTART+1)=slprob_0*ones(nnodes,1); % dynamic probability of interdic
 STOCK(:,TSTART)=NodeTable.Stock(:);
 TOTCPTL(:,TSTART)=NodeTable.Capital(:);
 PRICE(:,TSTART+1)=PRICE(:,TSTART);
+slcpcty_0=ceil(length(find(SLPROB(:,:,TSTART) == 1))/6);    % assumed number of S&L events that can be carried out per time step
+slcpcty_max=ceil(length(find(SLPROB(:,:,TSTART) == 1)));
 slcpcty(TSTART+1)=slcpcty_0;
 %%% Set-up node and network risk perceptions
 % SLRISK(:,:)=(DIST./max(max(DIST)));
@@ -778,10 +781,30 @@ for t=TSTART+1:TMAX
 %     rndslevents=ceil(slcpcty(t)*rand(1));
     subslevent=slevent(:,:,t);
     subslprob=reshape(SLPROB(:,:,t),nnodes*nnodes,1);
-%     subslprob=subslprob(subslprob~=1);
-    [subslprobsort,isubslprobsort]=sort(subslprob,'descend');
-    islevent=isubslprobsort(1:length(find(subslprob==1))+slcpcty(t));
-%     islevent=find(ismember(SLPROB(:,:,t),subslprobsort(1:rndslevents))==1);
+    irevisit=find(slsuccess(:,:,t-1) > 0);
+    irevisit=irevisit(randperm(length(irevisit),min(slcpcty(t),...
+        length(irevisit))));
+    %     subslprob=subslprob(subslprob~=1);
+    if isempty(find(irevisit,1)) == 1 && ...
+            sum(sum(sum(slsuccess(:,:,TSTART+1:t-1))),3) > 0
+        slquant=quantile(subslprob(subslprob~=0),[0.5 0.75 0.9]);
+        sleligible=find(subslprob > slquant(1));
+    else
+        slquant=quantile(subslprob(subslprob~=0),[0.5 0.75 0.9]);
+        sleligible=find(subslprob > slquant(2));
+    end
+    sleligible=sleligible(~ismember(sleligible,irevisit));
+    islevent=[irevisit; sleligible(randperm(length(sleligible),...
+        min(max(slcpcty(t)-length(irevisit),0),length(sleligible))))];
+    
+%     [subslprobsort,isubslprobsort]=sort(subslprob,'descend');
+%     islevent=isubslprobsort(1:length(find(subslprob==1))+slcpcty(t));
+%     if length(find(subslprob==1)) >= slcpcty(t)
+%         islevent=isubslprobsort(randperm(length(find(subslprob==1)),...
+%             slcpcty(t)));
+%     else
+%         islevent=isubslprobsort(1:slcpcty(t));
+%     end
     subslevent(islevent)=1;
     slevent(:,:,t)=subslevent;
 %     slevent(:,:,t)=(SLPROB(:,:,t) == 1);
@@ -827,12 +850,13 @@ for t=TSTART+1:TMAX
          else
 %              WGHT(n,inei)=1+(abs(routepref(inei,t).*neivalue)./...
 %                  sum(abs(routepref(inei,t).*neivalue))-1/length(inei));
-             WGHT(n,inei)=1+(abs(neivalue)./sum(abs(neivalue))-1/length(inei));
+%              WGHT(n,inei)=1+(abs(neivalue)./sum(abs(neivalue))-1/length(inei));
+             WGHT(n,inei)=max(neivalue,0)./sum(max(neivalue,0));
          end
          
-         %%% !!! Put checks in to make sure buying node has enough capital
 %          FLOW(n,inei,t)=min(floor(WGHT(n,inei).*(STOCK(n,t)/length(inei))),CPCTY(n,inei));
-         FLOW(n,inei,t)=min(WGHT(n,inei).*(STOCK(n,t)/length(inei)),CPCTY(n,inei));
+%          FLOW(n,inei,t)=min(WGHT(n,inei).*(STOCK(n,t)/length(inei)),CPCTY(n,inei));
+         FLOW(n,inei,t)=min(WGHT(n,inei).*STOCK(n,t),CPCTY(n,inei));
          % Check for S%L event
          if isempty(find(ismember(find(slevent(n,:,t)),inei),1)) == 0
              isl=(slevent(n,inei,t)==1);
@@ -868,13 +892,14 @@ for t=TSTART+1:TMAX
              %           sloccur=slevent(n,[bcknei fwdnei],TSTART+1:t);
              sloccur=slevent(n,fwdnei,TSTART+1:t);
          elseif t > TSTART+1 && length(fwdnei) == 1
-             %           sloccur=squeeze(slevent(n,[bcknei fwdnei],TSTART+1:t))';
-             sloccur=squeeze(slevent(n,fwdnei,TSTART+1:t));
+             %           sloccur=squeeze(slevent(n,fwdnei,TSTART+1:t));
+             sloccur=squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t));
          else
-             sloccur=squeeze(slevent(n,fwdnei,TSTART+1:t))';
+             %           sloccur=squeeze(slevent(n,fwdnei,TSTART+1:t))';
+             sloccur=squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t))';
          end
-         %       intrdoccur=intrdevent([bcknei fwdnei],TSTART+1:t);
-         intrdoccur=intrdevent(fwdnei,TSTART+1:t);
+         %       intrdoccur=intrdevent(fwdnei,TSTART+1:t);
+         intrdoccur=intrdevent(fwdnei,max(TSTART+1,t-12):t);
          [sl_risk,intrd_risk,slevnt,intrdevnt,tmevnt]=calc_intrisk(sloccur,...
              intrdoccur,t,TSTART,alpharisk,betarisk,timeweight);
          %       SLRISK(n,[bcknei fwdnei])=sl_risk;
@@ -906,8 +931,14 @@ for t=TSTART+1:TMAX
     %%% Eventually, this should be tied to perception of negative
     %%% consequences of trafficking (e.g., violence, lost profits from
     %%% licit markets, etc.)
-    slcpcty(t+1)=max(slcpcty(t)+ceil(delta_sl*(sum(sum(slsuccess(:,:,t)))-...
-        sum(sum(slsuccess(:,:,t-1))))),slcpcty_0);
+%     slcpcty(t+1)=min(max(ceil((1-delta_sl)*slcpcty(t)+delta_sl*...
+%         (sum(sum(slsuccess(:,:,t)))-sum(sum(slsuccess(:,:,t-1))))),...
+%         slcpcty_0),slcpcty_max);
+    slcpcty(t+1)=min(max(ceil((1-delta_sl)*slcpcty(t)+delta_sl*...
+        (sum(sum(slsuccess(:,:,t)))-sum(sum(mean(slsuccess(:,:,TSTART+1:t-1),3))))),...
+        slcpcty_0),slcpcty_max);
+%     slcpcty(t+1)=max(slcpcty(t)+ceil(delta_sl*(sum(sum(slsuccess(:,:,t)))-...
+%         sum(sum(slsuccess(:,:,t-1))))),slcpcty_0);
     
     INTRDPROB(:,t+1)=INTRDPROB(:,t);
     
@@ -941,9 +972,12 @@ for t=TSTART+1:TMAX
     ipossl=find(slsuccess(:,:,t)>0);
     [nrow,ncol]=ind2sub(size(slsuccess(:,:,t)),ipossl);
 %     supplyfit=PRICE(nnodes,t)*(STOCK(iendnode,t)/stock_0);
-    supplyfit=stock_0*PRICE(nnodes,t)-sum(subslsuc(ipossl).*PRICE(ncol,t));  %value-based loss calc
-    losstolval=losstol*stock_0*PRICE(nnodes,t); %value-based loss threshold
+%     supplyfit=stock_0*PRICE(nnodes,t)-sum(subslsuc(ipossl).*PRICE(ncol,t));  %value-based loss calc
+%     losstolval=losstol*stock_0*PRICE(nnodes,t); %value-based loss threshold
     
+    supplyfit=sum(subslsuc(ipossl).*PRICE(ncol,t));  %value-based loss calc
+    losstolval=(1-losstol)*stock_0*PRICE(nnodes,t);
+
     %call top-down route optimization
     newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
         subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstolval);
@@ -1007,10 +1041,15 @@ for t=TSTART+1:TMAX
             
             %%%% Establishing new land uses %%%%
             potprod=[];
-            if LUPROD(NodeTable.Row(n),NodeTable.Col(n),2) > 0 && ...
+            if lndrlosstol > abs(minsize(2)*LUPROD(NodeTable.Row(n),...
+                    NodeTable.Col(n),2)/cropthresh) && ...
                     TOTCPTL(n,t) >= cropthresh && ...
                     NodeTable.MktAccSuit(n) >= 0.05 && ...
                     length(find(sublu(IOWN{n,max(lt-1,1)}) == 7)) >= minsize(10)
+%             if LUPROD(NodeTable.Row(n),NodeTable.Col(n),2) > 0 && ...
+%                     TOTCPTL(n,t) >= cropthresh && ...
+%                     NodeTable.MktAccSuit(n) >= 0.05 && ...
+%                     length(find(sublu(IOWN{n,max(lt-1,1)}) == 7)) >= minsize(10)
                 % row crop land use
 %                 icropcells=find(neihood <= proxcells(cropminsize) & ...
 %                     subcropprod(~isnan(subcropprod)));
@@ -1033,10 +1072,15 @@ for t=TSTART+1:TMAX
                 potprod=[potprod; potcropprod(1:icrop,:)];
             end
             
-            if LUPROD(NodeTable.Row(n),NodeTable.Col(n),5) > 0 && ...
+            if lndrlosstol > abs(minsize(5)*LUPROD(NodeTable.Row(n),...
+                    NodeTable.Col(n),5)/palmthresh) && ...
                     TOTCPTL(n,t) >= palmthresh && ...
                     NodeTable.MktAccSuit(n) >= 0.05 && ...
-                    length(find(sublu(IOWN{n,max(lt-1,1)}) == 7)) >= minsize(10)
+                    length(find(sublu(IOWN{n,max(lt-1,1)}) == 7)) >= minsize(10)        
+%             if LUPROD(NodeTable.Row(n),NodeTable.Col(n),5) > 0 && ...
+%                     TOTCPTL(n,t) >= palmthresh && ...
+%                     NodeTable.MktAccSuit(n) >= 0.05 && ...
+%                     length(find(sublu(IOWN{n,max(lt-1,1)}) == 7)) >= minsize(10)
                 % plantation (palm oil) land use
 %                 iplntcells=find(neihood <= proxcells(minsize(5)) & ...
 %                     subplntprod(~isnan(subplntprod)));
@@ -1059,8 +1103,11 @@ for t=TSTART+1:TMAX
                 potprod=[potprod; potplntprod(1:iplnt,:)];
             end
             
-            if LUPROD(NodeTable.Row(n),NodeTable.Col(n),7) > 0 && ...
+            if lndrlosstol > abs(minsize(7)*LUPROD(NodeTable.Row(n),...
+                    NodeTable.Col(n),7)/cattlethresh) && ...
                     TOTCPTL(n,t) >= cattlethresh
+%             if LUPROD(NodeTable.Row(n),NodeTable.Col(n),7) > 0 && ...
+%                     TOTCPTL(n,t) >= cattlethresh
                 %cattle ranching
 %                 ictlcells=find(neihood <= proxcells(minsize(7)) & ...
 %                     subctlprod(~isnan(subctlprod)));
@@ -1148,8 +1195,8 @@ for t=TSTART+1:TMAX
         end
     end
 end
-cd X:\model_results\NarcoLogic_full_070417
-save('narcologic_results_full_070417','EdgeTable','NodeTable','LU','MOV','FLOW',...
+cd X:\model_results\NarcoLogic_null_070417
+save('narcologic_results_null_070417','EdgeTable','NodeTable','LU','MOV','FLOW',...
     'TOTCPTL','ICPTL','LCPTL','slsuccess','PROD','LUPROD','activeroute','STOCK','-v7.3')
 
 toc     % stop run timer
@@ -1187,7 +1234,7 @@ clrmap2=[1 1 1;  %built-up, nodata
     0 0 1]; %water
 
 % % %%% Trafficking movie
-% writerObj = VideoWriter('trafficking_lucombo_full_v1.mp4','MPEG-4');
+% writerObj = VideoWriter('trafficking_lucombo_null_v1.mp4','MPEG-4');
 % writerObj.FrameRate=10;
 % open(writerObj);
 % 
@@ -1396,7 +1443,7 @@ xlim([0 TMAX])
 ylabel('Cocaine Volume kg/month')
 xlabel('Month')
 legend('Consumer','S&L','Orientation','horizontal','Location','southoutside')
-saveas(h1_1,'Flows_vs_SL_full.png')
+saveas(h1_1,'Flows_vs_SL_null.png')
 % 
 % %%%%%% Diagnostics %%%%%%%
 % slrecord=sum(slsuccess(:,:,1:t),3);
@@ -1449,7 +1496,7 @@ clrmap=[0 0 0;  %nodata
 
 colormap(clrmap);
 set(gca,'Visible','off')
-saveas(h1_2,'LUmap_full.png')
+saveas(h1_2,'LUmap_null.png')
 
 %%% Plot time series of active nodes
 nactnodes=zeros(1,TMAX);
@@ -1478,7 +1525,7 @@ ylabel(hAx(2),'Average S&L Volume (kg)')
 xlim([0 TMAX])
 xlabel('Month')
 legend('Active Routes','S&L Volume','Orientation','horizontal','Location','southoutside')
-saveas(h2_1,'Nodes_vs_SL_full.png')
+saveas(h2_1,'Nodes_vs_SL_null.png')
 
 % %%% Command to use
 % % digraph, maxflow, nearest
