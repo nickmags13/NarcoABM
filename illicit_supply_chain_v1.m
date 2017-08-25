@@ -234,17 +234,31 @@ invst_suit(luint == 4)=1;
 %%% Weight each landscape attribute
 tcwght=1;       % tree cover
 brdwght=1;      % distance to country border
-dcstwght=1;     % distance to coast
+dcstwght=0;     % distance to coast
 mktwght=1;      % market access
 popwght=1;      % population density - proxy for remoteness
 slpwght=1;      % slope-constrained land suitability
-luwght=1;       % suitability based on initial land use
-invstwght=1;    % investment potential of initial land use
+luwght=0;       % suitability based on initial land use
+invstwght=0;    % investment potential of initial land use
 protwght=1;
 
-LANDSUIT=tcwght.*treecov./100+brdwght.*dbrdr_suit+dcstwght.*dcoast_suit+...
-    mktwght.*(1-mktacc_suit)+popwght.*pop_suit+slpwght.*slp_suit+luwght.*...
-    lu_suit+invstwght.*invst_suit+protwght.*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
+% LANDSUIT=tcwght.*treecov./100+brdwght.*dbrdr_suit+dcstwght.*dcoast_suit+...
+%     mktwght.*(1-mktacc_suit)+popwght.*pop_suit+slpwght.*slp_suit+luwght.*...
+%     lu_suit+invstwght.*invst_suit+protwght.*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
+
+wghts=[tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]./...
+    sum([tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]);
+
+% %%% Null Model
+% LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
+%     wghts(4).*mktacc_suit+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
+%     lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
+
+% %%% Full model
+LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
+    wghts(4).*(1-mktacc_suit)+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
+    lu_suit+wghts(7).*invst_suit+wghts(8)*protsuit;  % land suitability based on biophysical and narco variable predictors
+
 
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %@@@@@@@@@@ Agent Attributes @@@@@@@@@@@@
@@ -319,8 +333,12 @@ for i=1:length(dptcodes)
 %     randnode=icntry(ipotnode(randperm(length(ipotnode),...
 %         round(10*avgtcov(i)./median(avgtcov)))));
     if isempty(find(ipotnode,1)) == 1
-        subinodepick=find(LANDSUIT > nodequant(2));
-        ipotnode=find(ismember(idptmnt,subinodepick)==1);
+        subinodepick=find(LANDSUIT(idptmnt) > nodequant(2));
+        if isempty(find(subinodepick,1)) == 1
+            continue
+        end
+%         ipotnode=find(ismember(idptmnt,subinodepick)==1);
+        ipotnode=subinodepick;
     end
     randnode=idptmnt(ipotnode(randperm(max(length(ipotnode),1),...
         allocnodes)));
@@ -925,119 +943,119 @@ toc     % stop run timer
 % % %%% Visualization %%%
 % 
 % %%% Trafficking movie
-writerObj = VideoWriter('trafficking_risk_v7ntwrk.mp4','MPEG-4');
-writerObj.FrameRate=3;
-open(writerObj);
-
-h1=figure;
-set(h1,'Color','white','Visible','off')
-
-for tt=TSTART+1:t
-    geoshow(CAadm0,'FaceColor',[1 1 1])
-    hold on
-    %     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,tt)/1000))
-    plot(nodelon(1),nodelat(1),'r.','MarkerSize',stock_0)
-%     fedge=find(FLOW(1,:,tt) > 0);
-    fedge=activeroute{1,tt};
-    %
-    islevent=find(slevent(1,fedge,tt) == 1);
-    inoslevent=find(slevent(1,fedge,tt) == 0);
-    if isempty(islevent) == 1
-        for g=1:length(fedge)
-            plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
-        end
-    else
-        for g=1:length(fedge(islevent))
-            plot([nodelon(1); nodelon(fedge(islevent(g)))],[nodelat(1); ...
-                nodelat(fedge(islevent(g)))],'-k')
-            plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),...
-                'kx','MarkerSize',ceil(slsuccess(1,fedge(islevent(g)),tt)./10))
-        end
-        for k=1:length(fedge(inoslevent))
-            plot([nodelon(1); nodelon(fedge(inoslevent(k)))],[nodelat(1); ...]
-                nodelat(fedge(inoslevent(k)))],'-k')
-        end
-    end
-%     for g=1:length(fedge)
-%         plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
+% writerObj = VideoWriter('trafficking_risk_v7ntwrk.mp4','MPEG-4');
+% writerObj.FrameRate=3;
+% open(writerObj);
+% 
+% h1=figure;
+% set(h1,'Color','white','Visible','off')
+% 
+% for tt=TSTART+1:t
+%     geoshow(CAadm0,'FaceColor',[1 1 1])
+%     hold on
+%     %     plot(nodelon(1),nodelat(1),'r.','MarkerSize',ceil(MOV(1,1,tt)/1000))
+%     plot(nodelon(1),nodelat(1),'r.','MarkerSize',stock_0)
+% %     fedge=find(FLOW(1,:,tt) > 0);
+%     fedge=activeroute{1,tt};
+%     %
+%     islevent=find(slevent(1,fedge,tt) == 1);
+%     inoslevent=find(slevent(1,fedge,tt) == 0);
+%     if isempty(islevent) == 1
+%         for g=1:length(fedge)
+%             plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
+%         end
+%     else
+%         for g=1:length(fedge(islevent))
+%             plot([nodelon(1); nodelon(fedge(islevent(g)))],[nodelat(1); ...
+%                 nodelat(fedge(islevent(g)))],'-k')
+%             plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),...
+%                 'kx','MarkerSize',ceil(slsuccess(1,fedge(islevent(g)),tt)./10))
+%         end
+%         for k=1:length(fedge(inoslevent))
+%             plot([nodelon(1); nodelon(fedge(inoslevent(k)))],[nodelat(1); ...]
+%                 nodelat(fedge(inoslevent(k)))],'-k')
+%         end
 %     end
-    plot(nodelon(2:nnodes),nodelat(2:nnodes),'b.','MarkerSize',3)
-    xlabel('Longitude')
-    ylabel('Latitude')
-    title(sprintf('Timestep(month) = %d',tt-1))
-    frame = getframe(h1);
-    writeVideo(writerObj,frame);
-    % set(gca,'nextplot','replacechildren');
-    % set(gcf,'Renderer','zbuffer');
-    % ax=gca;
-    % movfilename='testmov.gif';
-    % cmap=get(h1,'ColorMap');
-    % ax.NextPlot='replaceChildren';
-    % MOV(nnodes-1) = struct('cdata',[],'colormap',[]);
-    for mm=1:nnodes-1
-        if mm == 1
-            clf
-            geoshow(CAadm0,'FaceColor',[1 1 1])
-            hold on
-            for nn=1:nnodes
-                if MOV(nn,mm,tt) > 0
-                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)))
-                else
-                    plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
-                end
-            end
-            continue
-        end
-        if isempty(find(MOV(mm,mm-1,tt) > 0,1)) == 1
-            continue
-        else
-            clf
-            geoshow(CAadm0,'FaceColor',[1 1 1])
-            hold on
-            for nn=1:nnodes
-                if MOV(nn,mm,tt) > 0
-                    plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)))
-                else
-                    plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
-                end
-            end
-%             fedge=find(FLOW(mm,:,tt) > 0);
-            fedge=activeroute{mm,tt};
-%             if isempty(find(fedge,1)) == 1
-%                 plot(nodelon(mm),nodelat(mm),'kx','MarkerSize',ceil(MOV(mm,mm-1,tt)./1000))
-%             else
+% %     for g=1:length(fedge)
+% %         plot([nodelon(1); nodelon(fedge(g))],[nodelat(1); nodelat(fedge(g))],'-k')
+% %     end
+%     plot(nodelon(2:nnodes),nodelat(2:nnodes),'b.','MarkerSize',3)
+%     xlabel('Longitude')
+%     ylabel('Latitude')
+%     title(sprintf('Timestep(month) = %d',tt-1))
+%     frame = getframe(h1);
+%     writeVideo(writerObj,frame);
+%     % set(gca,'nextplot','replacechildren');
+%     % set(gcf,'Renderer','zbuffer');
+%     % ax=gca;
+%     % movfilename='testmov.gif';
+%     % cmap=get(h1,'ColorMap');
+%     % ax.NextPlot='replaceChildren';
+%     % MOV(nnodes-1) = struct('cdata',[],'colormap',[]);
+%     for mm=1:nnodes-1
+%         if mm == 1
+%             clf
+%             geoshow(CAadm0,'FaceColor',[1 1 1])
+%             hold on
+%             for nn=1:nnodes
+%                 if MOV(nn,mm,tt) > 0
+%                     plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)))
+%                 else
+%                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
+%                 end
+%             end
+%             continue
+%         end
+%         if isempty(find(MOV(mm,mm-1,tt) > 0,1)) == 1
+%             continue
+%         else
+%             clf
+%             geoshow(CAadm0,'FaceColor',[1 1 1])
+%             hold on
+%             for nn=1:nnodes
+%                 if MOV(nn,mm,tt) > 0
+%                     plot(nodelon(nn),nodelat(nn),'r.','MarkerSize',ceil(MOV(nn,mm,tt)))
+%                 else
+%                     plot(nodelon(nn),nodelat(nn),'b.','MarkerSize',3)
+%                 end
+%             end
+% %             fedge=find(FLOW(mm,:,tt) > 0);
+%             fedge=activeroute{mm,tt};
+% %             if isempty(find(fedge,1)) == 1
+% %                 plot(nodelon(mm),nodelat(mm),'kx','MarkerSize',ceil(MOV(mm,mm-1,tt)./1000))
+% %             else
+% %                 for g=1:length(fedge)
+% %                     plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
+% %                 end
+% %             end
+%             islevent=find(slevent(mm,fedge,tt) == 1);
+%             inoslevent=find(slevent(mm,fedge,tt) == 0);
+%             if isempty(islevent) == 1
 %                 for g=1:length(fedge)
 %                     plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
 %                 end
+%             else
+%                 for g=1:length(fedge(islevent))
+%                 plot([nodelon(mm); nodelon(fedge(islevent(g)))],[nodelat(mm); ...
+%                     nodelat(fedge(islevent(g)))],'-k')
+%                 plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),...
+%                     'kx','MarkerSize',ceil(slsuccess(mm,fedge(islevent(g)),tt)))
+%                 end
+%                 for k=1:length(fedge(inoslevent))
+%                     plot([nodelon(mm); nodelon(fedge(inoslevent(k)))],...
+%                         [nodelat(mm); nodelat(fedge(inoslevent(k)))],'-k')
+%                 end
 %             end
-            islevent=find(slevent(mm,fedge,tt) == 1);
-            inoslevent=find(slevent(mm,fedge,tt) == 0);
-            if isempty(islevent) == 1
-                for g=1:length(fedge)
-                    plot([nodelon(mm); nodelon(fedge(g))],[nodelat(mm); nodelat(fedge(g))],'-k')
-                end
-            else
-                for g=1:length(fedge(islevent))
-                plot([nodelon(mm); nodelon(fedge(islevent(g)))],[nodelat(mm); ...
-                    nodelat(fedge(islevent(g)))],'-k')
-                plot(nodelon(fedge(islevent(g))),nodelat(fedge(islevent(g))),...
-                    'kx','MarkerSize',ceil(slsuccess(mm,fedge(islevent(g)),tt)))
-                end
-                for k=1:length(fedge(inoslevent))
-                    plot([nodelon(mm); nodelon(fedge(inoslevent(k)))],...
-                        [nodelat(mm); nodelat(fedge(inoslevent(k)))],'-k')
-                end
-            end
-        end
-        xlabel('Longitude')
-        ylabel('Latitude')
-        title(sprintf('Timestep(month) = %d',tt-1))
-        frame = getframe(h1);
-        writeVideo(writerObj,frame);
-    end
-    clf
-end
-close(writerObj);
+%         end
+%         xlabel('Longitude')
+%         ylabel('Latitude')
+%         title(sprintf('Timestep(month) = %d',tt-1))
+%         frame = getframe(h1);
+%         writeVideo(writerObj,frame);
+%     end
+%     clf
+% end
+% close(writerObj);
 % 
 % % im = frame2im(frame);
 % % [A,cmap] = rgb2ind(im,256);

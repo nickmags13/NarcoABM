@@ -227,12 +227,24 @@ invst_suit(luint == 2)=0.5;
 invst_suit(luint == 3 | luint == 5)=0.75;
 invst_suit(luint == 4)=1;
 
-%%% Weight each landscape attribute
-tcwght=0;       % tree cover
-brdwght=0;      % distance to country border
-dcstwght=0;     % distance to coast
+%%%%%%%%%%%% Weight each landscape attribute
+% %%% Null model
+% tcwght=0;       % tree cover
+% brdwght=0;      % distance to country border
+% dcstwght=0;     % distance to coast
+% mktwght=1;      % market access - proxy for remoteness
+% popwght=1;      % population density 
+% slpwght=1;      % slope-constrained land suitability
+% luwght=0;       % suitability based on initial land use
+% invstwght=0;    % investment potential of initial land use
+% protwght=1;         % protected area
+
+%%% Full model
+tcwght=1;       % tree cover
+brdwght=1;      % distance to country border
+dcstwght=0.5;     % distance to coast
 mktwght=1;      % market access - proxy for remoteness
-popwght=1;      % population density 
+popwght=0;      % population density 
 slpwght=1;      % slope-constrained land suitability
 luwght=0;       % suitability based on initial land use
 invstwght=0;    % investment potential of initial land use
@@ -241,15 +253,15 @@ protwght=1;         % protected area
 wghts=[tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]./...
     sum([tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]);
 
-%%% Null Model
-LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
-    wghts(4).*mktacc_suit+wghts(5).*(1-pop_suit)+wghts(6).*slp_suit+wghts(6).*...
-    lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
-
-% % %%% Full model
+% %%% Null Model
 % LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
-%     wghts(4).*(1-mktacc_suit)+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
-%     lu_suit+wghts(7).*invst_suit+wghts(8)*protsuit;  % land suitability based on biophysical and narco variable predictors
+%     wghts(4).*mktacc_suit+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
+%     lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
+
+% %%% Full model
+LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
+    wghts(4).*(1-mktacc_suit)+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
+    lu_suit+wghts(7).*invst_suit+wghts(8)*protsuit;  % land suitability based on biophysical and narco variable predictors
 
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %@@@@@@@@@@ Agent Attributes @@@@@@@@@@@@
@@ -327,8 +339,12 @@ for i=1:length(dptcodes)
 %     randnode=icntry(ipotnode(randperm(length(ipotnode),...
 %         round(10*avgtcov(i)./median(avgtcov)))));
     if isempty(find(ipotnode,1)) == 1
-        subinodepick=find(LANDSUIT > nodequant(2));
-        ipotnode=find(ismember(idptmnt,subinodepick)==1);
+        subinodepick=find(LANDSUIT(idptmnt) > nodequant(2));
+        if isempty(find(subinodepick,1)) == 1
+            continue
+        end
+%         ipotnode=find(ismember(idptmnt,subinodepick)==1);
+        ipotnode=subinodepick;
     end
     randnode=idptmnt(ipotnode(randperm(max(length(ipotnode),1),...
         allocnodes)));
@@ -636,7 +652,7 @@ x2plnt=cell2ha*1960-tree2past;    %assuming 8000 ha farm
 plntcost=cell2ha*(36704/25);  %operating costs over assumed lifetime of 25 years
 x2crop=cell2ha*743;     % fixed costs and variable costs, including cash rent equivalent, ISU extension and outreach
 cropcost=cell2ha*(100+373);  % fixed costs (less land) and variable costs, ISU extension and outreach
-roadcost=(plntcost*8000)/cell2ha;   %assuming capital to build plantation is related, cost to build infrastructure
+roadcost=(plntcost*80)/cell2ha;   %assuming capital to build plantation is related, cost to build infrastructure
 % Land use costs include fixed, capital costs and variable operation and
 % labor costs
 lucost=[...
@@ -660,7 +676,7 @@ minsize=zeros(Nuse,1);
 minsize(2)=cropminsize;
 minsize(5)=plntminsize;
 minsize(7)=cattleminsize;
-minsize(10)=plntminsize;    %need to have cleared enough land for plantation to build road
+minsize(10)=cattleminsize*3;    %need to have cleared enough land for plantation to build road
 
 %%%% Transport costs %%%%
 lvstcktrans=celldist*mi2km*10; % per kg/cell transport costs, ISU extension
@@ -1136,7 +1152,7 @@ for t=TSTART+1:TMAX
                 display('Check extent of cleared land')
                 NodeTable.RoadFlag(n)=1;
                 NodeTable.MktAccSuit(n)=max(0.05,NodeTable.MktAccSuit(n));
-%                 keyboard
+                keyboard
             end
             
             if isempty(find(potprod,1)) == 1
@@ -1195,9 +1211,10 @@ for t=TSTART+1:TMAX
         end
     end
 end
-cd X:\model_results\NarcoLogic_null_070417
-save('narcologic_results_null_070417','EdgeTable','NodeTable','LU','MOV','FLOW',...
-    'TOTCPTL','ICPTL','LCPTL','slsuccess','PROD','LUPROD','activeroute','STOCK','-v7.3')
+cd X:\model_results\NarcoLogic_full_070417
+save('narcologic_results_full_070417','EdgeTable','NodeTable','LU','MOV','FLOW',...
+    'TOTCPTL','ICPTL','LCPTL','slsuccess','PROD','LUPROD','activeroute','STOCK',...
+    'IOWN','OWN','-v7.3')
 
 toc     % stop run timer
 %%
@@ -1234,7 +1251,7 @@ clrmap2=[1 1 1;  %built-up, nodata
     0 0 1]; %water
 
 % % %%% Trafficking movie
-% writerObj = VideoWriter('trafficking_lucombo_null_v1.mp4','MPEG-4');
+% writerObj = VideoWriter('trafficking_lucombo_full_v1.mp4','MPEG-4');
 % writerObj.FrameRate=10;
 % open(writerObj);
 % 
@@ -1443,7 +1460,7 @@ xlim([0 TMAX])
 ylabel('Cocaine Volume kg/month')
 xlabel('Month')
 legend('Consumer','S&L','Orientation','horizontal','Location','southoutside')
-saveas(h1_1,'Flows_vs_SL_null.png')
+saveas(h1_1,'Flows_vs_SL_full.png')
 % 
 % %%%%%% Diagnostics %%%%%%%
 % slrecord=sum(slsuccess(:,:,1:t),3);
@@ -1496,7 +1513,7 @@ clrmap=[0 0 0;  %nodata
 
 colormap(clrmap);
 set(gca,'Visible','off')
-saveas(h1_2,'LUmap_null.png')
+saveas(h1_2,'LUmap_full.png')
 
 %%% Plot time series of active nodes
 nactnodes=zeros(1,TMAX);
@@ -1525,7 +1542,7 @@ ylabel(hAx(2),'Average S&L Volume (kg)')
 xlim([0 TMAX])
 xlabel('Month')
 legend('Active Routes','S&L Volume','Orientation','horizontal','Location','southoutside')
-saveas(h2_1,'Nodes_vs_SL_null.png')
+saveas(h2_1,'Nodes_vs_SL_full.png')
 
 % %%% Command to use
 % % digraph, maxflow, nearest
