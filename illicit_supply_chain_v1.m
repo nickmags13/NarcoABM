@@ -113,9 +113,9 @@ for j=1:length(dptcodes)
     maxlon(j)=max(nlon);
 end
 % nodevec=sqrt(meanlat.^2+meanlon.^2);
-nodevec=sqrt(0.9*maxlat.^2+0.1*maxlon.^2);
-nodemat=[dptcodes nodevec];
-nodeorder=sortrows(nodemat,2);
+dptvec=sqrt(0.9*maxlat.^2+0.1*maxlon.^2);
+dptmat=[dptcodes dptvec];
+dptorder=sortrows(dptmat,2);
 
 % Tree cover
 [tcov,Rtcov]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\treecov_clp.tif');
@@ -126,9 +126,9 @@ treecov(cagrid_cntry==cntrynodataval)=NaN;
 itreecov=find(treecov > 0); %identify high forest cover areas
 treecovpct=quantile(treecov(itreecov),[0.025 0.25 0.50 0.75 0.975]);
 itreepick=find(treecov >= treecovpct(2) & treecov < treecovpct(3));
-avgtcov=zeros(length(cntrycodes),1);    %average tree cover per county, weighting for generating trade nodes
-for cc=1:length(nodeorder(:,1))
-    avgtcov(cc)=mean(treecov(ca_adm0 == nodeorder(cc,1)));
+avgtcov=zeros(length(dptcodes),1);    %average tree cover per county, weighting for generating trade nodes
+for cc=1:length(dptcodes)
+    avgtcov(cc)=mean(treecov(ca_adm0 == dptcodes(cc)));
 end
 
 % Distance to coast and country borders
@@ -295,7 +295,7 @@ alpharisk=2;  %baseline is 0.001
 timewght_0=0.91;     %time discounting for subjective risk perception (Gallagher, 2014), range[0,1.05]
 % betarisk=alpharisk/slprob_0-alpharisk;
 betarisk=0.5;
-
+nodepct=0.0001; %percentage of high suitability cells that contain possible nodes
 % cntrycpcty=[0.1 0.1 0.1 0.1 0.1 0.1 0.1];   %country-specific, per node trafficking capacity
 
 %%%%%%%%%%%%%  Set-up Trafficking Network  %%%%%%%%%%%%%%%%%%
@@ -321,17 +321,20 @@ nodelusuit=0;
 nodelsuit=0;
 nodequant=quantile(LANDSUIT(~isnan(LANDSUIT)),[0.025 0.50 0.66 0.75 0.99]);
 inodepick=find(LANDSUIT > nodequant(4));
+avgnodealloc=ceil((length(inodepick)*nodepct)/length(dptcodes));
+pctdptsuit=zeros(length(dptorder(:,1)),1);
+for dc=1:length(pctdptsuit)
+    dptsuit=LANDSUIT(dptgrid == dptorder(dc,1));
+    pctdptsuit(dc)=length(find(dptsuit > nodequant(4)))/length(dptsuit);
+end
 % for i=1:length(cntrycodes)
-for i=1:length(dptcodes)
+for i=1:length(dptorder)
 %     icntry=find(ca_adm0 == nodeorder(i));
 %     ipotnode=find(ismember(icntry,inodepick)==1);   %place nodes based on LANDSUIT
-    idptmnt=find(dptgrid == nodeorder(i,1));
+    idptmnt=find(dptgrid == dptorder(i,1));
     ipotnode=find(ismember(idptmnt,inodepick)==1);
-    % Select number of nodes per admin boundary based on drug intensity
-    % index
-    allocnodes=1;
-%     randnode=icntry(ipotnode(randperm(length(ipotnode),...
-%         round(10*avgtcov(i)./median(avgtcov)))));
+    % allocate nodes per department based on suitability within department
+    allocnodes=round(avgnodealloc*pctdptsuit(i)./median(pctdptsuit(pctdptsuit~=0)));
     if isempty(find(ipotnode,1)) == 1
         subinodepick=find(LANDSUIT(idptmnt) > nodequant(2));
         if isempty(find(subinodepick,1)) == 1
@@ -340,11 +343,10 @@ for i=1:length(dptcodes)
 %         ipotnode=find(ismember(idptmnt,subinodepick)==1);
         ipotnode=subinodepick;
     end
-    randnode=idptmnt(ipotnode(randperm(max(length(ipotnode),1),...
-        allocnodes)));
     
-%     [nrow,ncol]=ind2sub(size(ca_adm0),randnode);
-%     [nlat,nlon]=pix2latlon(Rcagrid_cntry,nrow,ncol);
+    randnode=idptmnt(ipotnode(randperm(max(length(ipotnode),...
+        length(ipotnode)),allocnodes)));
+
     [nrow,ncol]=ind2sub(size(dptgrid),randnode);
     [nlat,nlon]=pix2latlon(Rdptgrid,nrow,ncol);
     nodeid=[nodeid length(nodeid)+(1:length(randnode))];
@@ -352,7 +354,7 @@ for i=1:length(dptcodes)
     nodecol=[nodecol; ncol];
     nodelat=[nodelat; nlat];
     nodelon=[nodelon; nlon];
-    nodecode=[nodecode; nodeorder(i,1)*ones(length(randnode),1)];
+    nodecode=[nodecode; dptorder(i,1)*ones(length(randnode),1)];
     nodestck=[nodestck; zeros(length(randnode),1)];
     nodecptl=[nodecptl; zeros(length(randnode),1)];
     nodetcov=[nodetcov; treecov(randnode)];
@@ -373,11 +375,8 @@ for i=1:length(dptcodes)
             {'EndNodes' 'Weight' 'Flows' 'Capacity'});
     end
     if i == length(dptcodes)
-%     if i == length(cntrycodes)
-%         inei=(nodecode == 23 | nodecode == 94);
         inei=ismember(nodecode,unique(dptgrid(ca_adm0 == 23 | ca_adm0 ==94)));
         snode=nodeid(inei)';
-%         snode=(length(nodeid)-(length(randnode)-1):length(nodeid))';
         tnode=(length(nodeid)+1)*ones(length(snode),1);
         nodeid=[nodeid max(nodeid)+1];  %add end node
         noderow=[noderow; edrow];
@@ -688,9 +687,9 @@ maizeyld=mazyld;
 maizeyld(isnan(mazyld))=predict(mazmdl,mktacc(isnan(mazyld)));
 maizeyld(luint == 8)=NaN;
 palmyld=plmyld;
-for cc=1:length(nodeorder(:,1))
-    palmyld(ca_adm0 == nodeorder(cc,1))=nanmean(plmyld(ca_adm0 == ...
-        nodeorder(cc,1)));
+for cc=1:length(dptcodes)
+    palmyld(ca_adm0 == dptcodes(cc))=nanmean(plmyld(ca_adm0 == ...
+        dptcodes(cc)));
 end
 palmyld(luint == 8)=NaN;
 cattleyld=ctlden;
@@ -778,7 +777,7 @@ for t=TSTART+1:TMAX
          %%% Procedure for selecting routes based on expected profit %%%
          c_trans=CTRANS(n,inei);
          p_sl=SLRISK(n,inei);
-         p_int=INTRISK(n,inei); %currently not used
+%          p_int=INTRISK(n,inei); %currently not used
          y_node=ADDVAL(n,inei);
          q_node=min(floor(STOCK(n,t)./length(inei)),CPCTY(n,inei));
          lccf=ltcoeff(n);
@@ -855,7 +854,7 @@ for t=TSTART+1:TMAX
           avgslrisk(n,t)=mat2cell(SLRISK(n,activeroute{n,t}),1,...
               length(activeroute{n,t}));
       end
-      INTRISK(n,t+1)=mean(intrd_risk);  %node-specific risk is the average of neighbor risks
+%       INTRISK(n,t+1)=mean(intrd_risk);  %node-specific risk is the average of neighbor risks
       
       %!!!!!!!!!!!
 %          ICPTL(n,t)=ICPTL(n,t)-OUTFLOW(n,t)*VALUE(  %account for value retained at node
