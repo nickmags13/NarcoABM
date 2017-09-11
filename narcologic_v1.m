@@ -240,8 +240,8 @@ invst_suit(luint == 4)=1;
 % protwght=1;         % protected area
 
 %%% Full model
-tcwght=1;       % tree cover
-brdwght=1;      % distance to country border
+tcwght=0;       % tree cover
+brdwght=0;      % distance to country border
 dcstwght=0;     % distance to coast
 mktwght=1;      % market access - proxy for remoteness
 popwght=1;      % population density 
@@ -253,15 +253,15 @@ protwght=1;         % protected area
 wghts=[tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]./...
     sum([tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]);
 
-% %%% Null Model
-% LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
-%     wghts(4).*mktacc_suit+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
-%     lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
-
-% %%% Full model
+%%% Null Model
 LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
-    wghts(4).*(1-mktacc_suit)+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
-    lu_suit+wghts(7).*invst_suit+wghts(8)*protsuit;  % land suitability based on biophysical and narco variable predictors
+    wghts(4).*mktacc_suit+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
+    lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
+
+% % %%% Full model
+% LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
+%     wghts(4).*(1-mktacc_suit)+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
+%     lu_suit+wghts(7).*invst_suit+wghts(8)*protsuit;  % land suitability based on biophysical and narco variable predictors
 
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %@@@@@@@@@@ Agent Attributes @@@@@@@@@@@@
@@ -517,6 +517,7 @@ latfac=[0; 1-nwvec./max(nwvec); 0];
 % Create adjacency matrix (without graph toolbox)
 ADJ(EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1),iendnode)=1;
 iedge=find(ADJ == 1);
+subneihood=zeros(size(LANDSUIT));
 for j=1:nnodes
     %Create weight and capacity matrices
     WGHT(j,ADJ(j,:)==1)=EdgeTable.Weight(ADJ(j,:)==1);
@@ -566,7 +567,6 @@ for j=1:nnodes
 
     % Create gridded distance from node for calculating land use
     % neighborhood
-    subneihood=zeros(size(LANDSUIT));
     if j > 1 && j < nnodes
         idptcode=find(dptgrid == NodeTable.DeptCode(j));
         [dptrows,dptcols]=ind2sub(size(dptgrid),idptcode);
@@ -1192,8 +1192,8 @@ for t=TSTART+1:TMAX
         end
     end
 end
-cd X:\model_results\NarcoLogic_full_070417
-save('narcologic_results_full_070417','EdgeTable','NodeTable','LU','MOV','FLOW',...
+cd X:\model_results\NarcoLogic_null_082817
+save('narcologic_results_null_082817','EdgeTable','NodeTable','LU','MOV','FLOW',...
     'TOTCPTL','ICPTL','LCPTL','slsuccess','PROD','LUPROD','activeroute','STOCK',...
     'IOWN','OWN','-v7.3')
 

@@ -1,5 +1,5 @@
 function [neipick,neivalue]=calc_neival(c_trans,p_sl,y_node,q_node,lccf,...
-    rtpref,tslrisk)
+    rtpref,tslrisk,dtonei,cutflag)
 
 pay_noevent=zeros(length(c_trans),1);
 pay_event=zeros(length(c_trans),1);
@@ -64,15 +64,35 @@ end
 % icut=find(cumsum(rankroute(:,2)) <= totstock);  % select route based on total capcity
 
 %%% Selection based on maximize profits while less than average S&L risk
-rankroute=sortrows([rtpref'.*valuex p_sl' q_node' iset'],-1);  %rank trafficking routes by salient payoff
-% icut=find(cumsum(rankroute(:,2)) <= tslrisk);
-if isempty(find(valuex > 0,1)) == 1
-    [~,icut]=min(rankroute(:,2),[],1);
-elseif isempty(find(rankroute(:,1) > 0,1)) == 1
-    icut=find(rankroute(:,1) >= 0);
+rankroute=sortrows([rtpref'.*valuex p_sl' q_node' iset' dtonei],-1);  %rank trafficking routes by salient payoff
+dtos=unique(dtonei(dtonei~=0));
+if length(dtos) > 1
+    icut=[];
+    for j=1:length(dtos)
+        idto=find(rankroute(:,5) == dtos(j));
+        if isempty(find(valuex(idto) > 0,1)) == 1
+            [~,subicut]=min(rankroute(idto,2),[],1);
+        elseif isempty(find(rankroute(idto,1) > 0,1)) == 1
+            subicut=find(rankroute(idto,1) >= 0);
+        else
+            subicut=find(rankroute(idto,1) > 0);
+        end
+        if cutflag(dtos(j)) == 1
+            subicut=[];
+        end   
+        icut=[icut; idto(subicut)];
+    end
+    if rankroute(rankroute(:,5) == 0,1) > min(rankroute(icut,1))
+        icut=[icut; find(rankroute(:,5) == 0)];
+    end
 else
-    icut=find(rankroute(:,1) > 0);
+    if isempty(find(valuex > 0,1)) == 1
+        [~,icut]=min(rankroute(:,2),[],1);
+    elseif isempty(find(rankroute(:,1) > 0,1)) == 1
+        icut=find(rankroute(:,1) >= 0);
+    else
+        icut=find(rankroute(:,1) > 0);
+    end
 end
-
 neipick=rankroute(icut,4);
 neivalue=rankroute(icut,1);
