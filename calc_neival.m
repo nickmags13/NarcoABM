@@ -70,7 +70,7 @@ if length(dtos) > 1
     icut=[];
     for j=1:length(dtos)
         idto=find(rankroute(:,5) == dtos(j));
-        if isempty(find(valuex(idto) > 0,1)) == 1
+        if isempty(find(valuex(dtonei == dtos(j)) > 0,1)) == 1
             [~,subicut]=min(rankroute(idto,2),[],1);
         elseif isempty(find(rankroute(idto,1) > 0,1)) == 1
             subicut=find(rankroute(idto,1) >= 0);
