@@ -1,5 +1,5 @@
-function [neipick,neivalue]=calc_neival(c_trans,p_sl,y_node,q_node,lccf,...
-    rtpref,tslrisk,dtonei,cutflag)
+function [neipick,neivalue,valuex]=calc_neival(c_trans,p_sl,y_node,q_node,lccf,...
+    rtpref,tslrisk,dtonei,profmdl,cutflag)
 
 pay_noevent=zeros(length(c_trans),1);
 pay_event=zeros(length(c_trans),1);
@@ -70,28 +70,52 @@ if length(dtos) > 1
     icut=[];
     for j=1:length(dtos)
         idto=find(rankroute(:,5) == dtos(j));
-        if isempty(find(valuex(dtonei == dtos(j)) > 0,1)) == 1
-            [~,subicut]=min(rankroute(idto,2),[],1);
-        elseif isempty(find(rankroute(idto,1) > 0,1)) == 1
-            subicut=find(rankroute(idto,1) >= 0);
-        else
-            subicut=find(rankroute(idto,1) > 0);
+        if profmdl == 1
+            if isempty(find(valuex(dtonei == dtos(j)) > 0,1)) == 1
+                [~,subicut]=min(rankroute(idto,2),[],1);
+            elseif isempty(find(rankroute(idto,1) > 0,1)) == 1
+                subicut=find(rankroute(idto,1) >= 0);
+            else
+                subicut=find(rankroute(idto,1) > 0);
+            end
+            if cutflag(dtos(j)) == 1
+                subicut=[];
+            end
+            icut=[icut; idto(subicut)];
+        elseif profmdl == 2
+            if isempty(find(valuex(dtonei == dtos(j)) > 0,1)) == 1
+                [~,subicut]=min(rankroute(idto,2),[],1);
+            elseif isempty(find(cumsum(rankroute(idto,1)) > 0,1)) == 1
+                subicut=find(cumsum(rankroute(idto,1)) >= 0);
+            else
+                subicut=find(cumsum(rankroute(idto,1)) > 0);
+            end
+            if cutflag(dtos(j)) == 1
+                subicut=[];
+            end
+            icut=[icut; idto(subicut)];
         end
-        if cutflag(dtos(j)) == 1
-            subicut=[];
-        end   
-        icut=[icut; idto(subicut)];
     end
     if rankroute(rankroute(:,5) == 0,1) > min(rankroute(icut,1))
         icut=[icut; find(rankroute(:,5) == 0)];
     end
 else
-    if isempty(find(valuex > 0,1)) == 1
-        [~,icut]=min(rankroute(:,2),[],1);
-    elseif isempty(find(rankroute(:,1) > 0,1)) == 1
-        icut=find(rankroute(:,1) >= 0);
-    else
-        icut=find(rankroute(:,1) > 0);
+    if profmdl == 1
+        if isempty(find(valuex > 0,1)) == 1
+            [~,icut]=min(rankroute(:,2),[],1);
+        elseif isempty(find(rankroute(:,1) > 0,1)) == 1
+            icut=find(rankroute(:,1) >= 0);
+        else
+            icut=find(rankroute(:,1) > 0);
+        end
+    elseif profmdl == 2
+        if isempty(find(valuex > 0,1)) == 1
+            [~,icut]=min(rankroute(:,2),[],1);
+        elseif isempty(find(cumsum(rankroute(:,1)) > 0,1)) == 1
+            icut=find(cumsum(rankroute(:,1)) >= 0);
+        else
+            icut=find(cumsum(rankroute(:,1)) > 0);
+        end
     end
 end
 neipick=rankroute(icut,4);

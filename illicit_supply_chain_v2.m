@@ -272,7 +272,7 @@ delta_sl=0.5;      % reinforcement learning rate for S&L vents (i.e., weight on 
 ndto=2;         %initial number of DTOs
 dtocutflag=zeros(ndto,1);
 DTOBDGT=zeros(ndto,TMAX);
-losstol=0.9;        % tolerance threshold for loss due to S&L, triggers route fragmentation
+losstol=0.1;        % tolerance threshold for loss due to S&L, triggers route fragmentation
 stock_0=200;     %initial cocaine stock at producer node
 startvalue=385; %producer price, $385/kg
 deltavalue=8;   %added value for distance traveled $8/kilo/km
@@ -302,9 +302,9 @@ timewght_0=0.91;     %time discounting for subjective risk perception (Gallagher
 betarisk=0.5;
 nodepct=0.0001; %percentage of high suitability cells that contain possible nodes
 % cntrycpcty=[0.1 0.1 0.1 0.1 0.1 0.1 0.1];   %country-specific, per node trafficking capacity
-rentcap=0.4;     % proportion of value of shipments 'captured' by nodes
 bribepct=0.3;       % Annual proportion of gross profits from drug trafficking that go towards securing node territory
 bribethresh=12;      % Maximum number of months a node can o without bribes to maintain control
+rentcap=1-bribepct;     % proportion of value of shipments 'captured' by nodes
 %%%%%%%%%%%%%  Set-up Trafficking Network  %%%%%%%%%%%%%%%%%%
 % G=digraph;  
 nodeid=1; 
@@ -437,13 +437,15 @@ NEIHOOD=cell(nnodes,2);
 
 routepref=zeros(nnodes,nnodes,TMAX);   % weighting by network agent of successful routes
 slevent=zeros(nnodes,nnodes,TMAX);  % occurrence of S&L event
-slsuccess=zeros(nnodes,nnodes,TMAX);    % S&L events in which cocaine was seized
+slsuccess=zeros(nnodes,nnodes,TMAX);    % volume of cocaine seized in S&L events 
+slvalue=zeros(nnodes,nnodes,TMAX);    % value of cocaine seized in S&L events
 SLPROB=zeros(nnodes,nnodes,TMAX);   % dynamic probability of S&L event per edge
 intrdevent=zeros(nnodes,TMAX);
 INTRDPROB=zeros(nnodes,TMAX);
 
 STOCK=zeros(nnodes,TMAX);       %dynamic cocaine stock at each node
 PRICE=zeros(nnodes,TMAX);       % $/kilo at each node
+RISKPREM=zeros(ndto,TMAX);      % risk premium after Caulkins et al. (1993)
 INFLOW=zeros(nnodes,TMAX);       % dynamic stock of cocaine coming into at each node
 OUTFLOW=zeros(nnodes,TMAX);       % dynamic stock of cocaine leaving from each node
 TOTCPTL=zeros(nnodes,TMAX);     % total value of cocaine at each node
@@ -664,10 +666,13 @@ for t=TSTART+1:TMAX
     %%% Specified number of events, selection of highest probability nodes (in addition to p=1) 
 %     newslevents=ceil(slcpcty(t)*rand(1));
     subslevent=slevent(:,:,t);
+    subsuccess=slsuccess(:,:,t-1);
     subslprob=reshape(SLPROB(:,:,t),nnodes*nnodes,1);
     irevisit=find(slsuccess(:,:,t-1) > 0);
-    irevisit=irevisit(randperm(length(irevisit),min(slcpcty(t),...
-        length(irevisit))));
+    sl_vol=sortrows([irevisit subsuccess(irevisit)],-2);
+    irevisit=sl_vol(1:min(slcpcty(t),length(irevisit)),1);
+%     irevisit=irevisit(randperm(length(irevisit),min(slcpcty(t),...
+%         length(irevisit))));
     %     subslprob=subslprob(subslprob~=1);
     if isempty(find(irevisit,1)) == 1 && ...
             sum(sum(sum(slsuccess(:,:,TSTART+1:t-1))),3) > 0
@@ -789,6 +794,7 @@ for t=TSTART+1:TMAX
             if isempty(find(ismember(find(slevent(n,:,t)),inei),1)) == 0
                 isl=(slevent(n,inei,t)==1);
                 slsuccess(n,inei(isl),t)=FLOW(n,inei(isl),t);
+                slvalue(n,inei(isl),t)=FLOW(n,inei(isl),t).*PRICE(inei(isl),t)';
                 if slsuccess(n,inei(isl),t) == 0
                     slevent(n,inei(isl),t)=0;
                 end
@@ -807,13 +813,13 @@ for t=TSTART+1:TMAX
                 if n > 1
                     BRIBE(n,t)=max(bribepct*MARGIN(n,t),0);
                     if MARGIN(n,t) > 0
-                        RENTCAP(n,t)=rentcap*(MARGIN(n,t)-BRIBE(n,t));
+                        RENTCAP(n,t)=MARGIN(n,t)-BRIBE(n,t);
                     else
                         RENTCAP(n,t)=MARGIN(n,t);
                     end
                     TOTCPTL(n,t)=max(TOTCPTL(n,t),0)+RENTCAP(n,t);  % losses on top of debt capture by MARGIN
-                    DTOBDGT(NodeTable.DTO(n),t)=DTOBDGT(NodeTable.DTO(n),t)+...
-                        (1-rentcap)*max(MARGIN(n,t)-BRIBE(n,t),0);
+%                     DTOBDGT(NodeTable.DTO(n),t)=DTOBDGT(NodeTable.DTO(n),t)+...
+%                         (1-rentcap)*max(MARGIN(n,t)-BRIBE(n,t),0);
                 else
                     RENTCAP(n,t)=MARGIN(n,t);
                     TOTCPTL(n,t)=TOTCPTL(n,t)+RENTCAP(n,t);
@@ -830,13 +836,13 @@ for t=TSTART+1:TMAX
                 if n > 1
                     BRIBE(n,t)=max(bribepct*MARGIN(n,t),0);
                     if MARGIN(n,t) > 0
-                        RENTCAP(n,t)=rentcap*(MARGIN(n,t)-BRIBE(n,t));
+                        RENTCAP(n,t)=MARGIN(n,t)-BRIBE(n,t);
                     else
                         RENTCAP(n,t)=MARGIN(n,t);
                     end
                     TOTCPTL(n,t)=max(TOTCPTL(n,t),0)+RENTCAP(n,t);
-                    DTOBDGT(NodeTable.DTO(n),t)=DTOBDGT(NodeTable.DTO(n),t)+...
-                        (1-rentcap)*max(MARGIN(n,t)-BRIBE(n,t),0);
+%                     DTOBDGT(NodeTable.DTO(n),t)=DTOBDGT(NodeTable.DTO(n),t)+...
+%                         (1-rentcap)*max(MARGIN(n,t)-BRIBE(n,t),0);
                 else
                     RENTCAP(n,t)=MARGIN(n,t);
                     TOTCPTL(n,t)=TOTCPTL(n,t)+RENTCAP(n,t);
@@ -888,12 +894,13 @@ for t=TSTART+1:TMAX
     totslrisk(t+1)=mean(cat(2,avgslrisk{:,t}));
     %%% Updating interdiction event probability
     subslsuc=slsuccess(:,:,t);
+    subslval=slvalue(:,:,t);
     subslprob=SLPROB(:,:,t);
     islcheck=(slevent(:,:,t) == 1);
-%     SLPROB(:,:,t+1)=max((1-delta_sl).*SLPROB(:,:,t)+delta_sl.*...
-%         (slsuccess(:,:,t)./max(max(slsuccess(:,:,t)))),SLPROB(:,:,TSTART));
     subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
         (subslsuc(islcheck) > 0),slmin(islcheck));
+%     subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
+%         (subslval(islcheck) > 0),slmin(islcheck));
     SLPROB(:,:,t+1)=subslprob;
     %%% Eventually, this should be tied to perception of negative
     %%% consequences of trafficking (e.g., violence, lost profits from
@@ -918,7 +925,7 @@ for t=TSTART+1:TMAX
     %%%%%%%%% Route Optimization %%%%%%%%%%%
     for dt=1:ndto
         idto=find(NodeTable.DTO == dt);
-%         DTOBDGT(dt,t)=sum(TOTCPTL(idto,t)); %total DTO funds for expansion/viability
+        DTOBDGT(dt,t)=STOCK(nnodes,t)*PRICE(nnodes,t); %total DTO funds for expansion/viability
 %         if t > 3 && isempty(find(DTOBDGT(dt,t-3:t) > 0,1)) == 1
 %             dtocutflag(dt)=1;
 %             display('dto cut')
@@ -949,12 +956,12 @@ for t=TSTART+1:TMAX
         ipossl=find(dtoslsuc > 0);
         [nrow,ncol]=ind2sub(size(dtoslsuc),ipossl);
         %     losstolval=losstol*stock_0*PRICE(nnodes,t); %value-based loss threshold
-        
+       
         supplyfit=sum(dtoslsuc(ipossl).*PRICE(dtorefvec(ncol),t));  %value-based loss calc
-        losstolval=(1-losstol)*sum(subflow(1,:)+dtoslsuc(1,:))*PRICE(nnodes,t);
+        losstolval=losstol*sum(subflow(1,:)+dtoslsuc(1,:))*PRICE(nnodes,t);
         
         if isempty(find(supplyfit ~= 0,1)) == 1 && isempty(find(losstolval ~= 0,1)) == 1
-            supplyfit=1;
+            supplyfit=0.1;
         end
         %call top-down route optimization
         %     newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
@@ -967,9 +974,48 @@ for t=TSTART+1:TMAX
             display('check route optimization for each dto')
 %             keyboard
         end
+%         RISKPREM(dt,t+1)=mean(mean(SLRISK(dtoEdgeTable.EndNodes(ismember(...
+%             dtoEdgeTable.EndNodes(:,2),subactivenodes),1),dtoEdgeTable.EndNodes(ismember(...
+%             dtoEdgeTable.EndNodes(:,1),subactivenodes),2))./losstol))^riskmltplr(erun);
+%         if isempty(find(ipossl,1)) == 0
+%             keyboard
+%         end
+%         recrisk=cat(1,SLRISK(dtoEdgeTable.EndNodes(ismember(dtoEdgeTable.EndNodes(:,2),...
+%             subactivenodes),1),subactivenodes));
+%         sendrisk=SLRISK(subactivenodes,dtoEdgeTable.EndNodes(ismember(dtoEdgeTable.EndNodes(:,1),...
+%             subactivenodes),2))';
+%         rterisk=[recrisk; sendrisk];
+%         RISKPREM(dt,t+1)=mean(reshape(rterisk,size(rterisk,1)*size(rterisk,2),1)./...
+%             baserisk(erun))^riskmltplr(erun);
+        recrisk=[];
+        sendrisk=[];
+        rterisk=[];
+        for ic=1:length(dtorefvec)
+            if isempty(activeroute{dtorefvec(ic),t}) == 1
+                continue
+            else
+%                 recrisk=[recrisk; dtorefvec(ic)];
+%                 sendrisk=[sendrisk; activeroute{dtorefvec(ic),t}];
+                recrisk=[recrisk; dtorefvec(ic)];
+                sendrisk=[sendrisk; activeroute{dtorefvec(ic),t}];
+                rterisk=[rterisk; SLRISK(dtorefvec(ic),activeroute{dtorefvec(ic),t})'];
+            end
+        end
+        RISKPREM(dt,t+1)=mean(rterisk./baserisk(erun))^riskmltplr(erun);
+%         RISKPREM(dt,t+1)=mean(mean(dtoSLRISK./baserisk(erun)))^riskmltplr(erun);
+        PRICE(idto,t+1)=max(PRICE(idto,t)*RISKPREM(dt,t+1),PRICE(idto,TSTART));
     end
-%     routepref(:,:,t+1)=routepref(:,:,t);
-    PRICE(:,t+1)=PRICE(:,t);
+    %     routepref(:,:,t+1)=routepref(:,:,t);
+    if isempty(find(activeroute{1,t} == nnodes,1)) == 0
+        PRICE(nnodes,t+1)=max((mean(SLRISK([1; activenodes(FLOW(activenodes,nnodes,t)~=0)],nnodes)./...
+            baserisk(erun))^riskmltplr(erun))*PRICE(nnodes,t),PRICE(nnodes,TSTART));
+    else
+        PRICE(nnodes,t+1)=max((mean(SLRISK(activenodes(FLOW(activenodes,nnodes,t)~=0),nnodes)./...
+            baserisk(erun))^riskmltplr(erun))*PRICE(nnodes,t),PRICE(nnodes,TSTART));
+    end
+%     PRICE(nnodes,t+1)=(mean(mean(max(SLRISK(:,nnodes)./baserisk(erun),1)))^...
+%         riskmltplr(erun))*PRICE(nnodes,t);
+    %     PRICE(:,t+1)=PRICE(:,t);
     STOCK(1,t+1)=stock_0;    %additional production to enter network next time step
     STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step
     NodeTable.Stock(1)=stock_0;
@@ -1173,30 +1219,83 @@ end
 % 
 nactnodes=zeros(1,TMAX);
 nslsuccess=zeros(1,TMAX);
+nslvalue=zeros(1,TMAX);
 slperevent=zeros(1,TMAX);
+slval=zeros(1,TMAX);
 for z=1:TMAX
     nactnodes(z)=length(cat(1,activeroute{:,z}));
     subslsccss=slsuccess(:,:,z);
+    subslvalue=slvalue(:,:,z);
     nslsuccess(z)=length(find(subslsccss > 0));
+    nslvalue(z)=length(find(subslvalue > 0));
     if isempty(find(subslsccss > 0,1)) == 0
         slperevent(z)=mean(subslsccss(subslsccss > 0)./...
             length(find(subslsccss > 0)));
+        slval(z)=mean(subslvalue(subslvalue > 0)./...
+            length(find(subslvalue > 0)));
     else
         slperevent(z)=0;
+        slval(z)=0;
     end
 end 
-% h2_1=figure;
-% set(h2_1,'Color','white')
-% [hAx,hl1,hl2]=plotyy(1:TMAX,nactnodes,1:TMAX,slperevent);
+
+t_firstmov=zeros(nnodes,1);
+for n=2:nnodes-1
+    t_firstmov(n)=find(TOTCPTL(n,:) > 0,1,'first');
+end
+t_firstmov(nnodes)=find(STOCK(nnodes,:)>0,1,'first');
+
+% % Timing of movements
+% h11=figure;
+% set(h11,'color','white')
+% plot(nodelat,t_firstmov,'.')
+% xlabel('Latititude')
+% ylabel('Time Step of First Movement')
+% 
+% % h2_1=figure;
+% % set(h2_1,'Color','white')
+% % [hAx,hl1,hl2]=plotyy(1:TMAX,nactnodes,1:TMAX,slperevent);
+% [hAx,hl1,hl2]=plotyy(1:TMAX,nactnodes,1:TMAX,slval);
 % % plot(1:TMAX,nactnodes,'-b')
 % ylabel(hAx(1),'Number of Routes')
 % % hold on
 % % yyaxis right
 % % plot(1:TMAX,slpervent,'--r')
 % ylabel(hAx(2),'Average S&L Volume (kg)')
-% xlim([0 TMAX])
+% xlim(hAx(1),[1 TMAX])
+% xlim(hAx(2),[1 TMAX])
 % xlabel('Month')
 % legend('Active Routes','S&L Volume','Orientation','horizontal','Location','southoutside')
+
+% h2_2=figure;
+% set(h2_2,'Color','white')
+% [hAx,hl1,hl2]=plotyy(1:TMAX,nactnodes(1,:),1:TMAX,slperevent(1,:));
+% h11.LineStyle='-';
+% h11.LineColor='b';
+% h12.LineStyle='--';
+% h12.LineColor='b';
+% hold on
+% [hAx2,h21,h22]=plotyy(1:TMAX,nactnodes(2,:),1:TMAX,slperevent(2,:));
+% h21.LineStyle='-';
+% h21.LineColor='r';
+% h22.LineStyle='--';
+% h22.LineColor='r';
+subplot(2,1,1)
+[hAx,hl1,hl2]=plotyy(1:TMAX,nactnodes(1,:),1:TMAX,slperevent(1,:));
+ylabel(hAx(1),'Number of Routes')
+ylabel(hAx(2),'Average S&L Volume (kg)')
+xlim(hAx(1),[1 TMAX])
+xlim(hAx(2),[1 TMAX])
+legend('Active Routes','S&L Volume','Orientation','vertical','Location','NorthWest')
+subplot(2,1,2)
+[hAx2,h21,h22]=plotyy(1:TMAX,nactnodes(2,:),1:TMAX,slperevent(2,:));
+ylabel(hAx2(1),'Number of Routes')
+ylabel(hAx2(2),'Average S&L Volume (kg)')
+xlim(hAx2(1),[1 TMAX])
+xlim(hAx2(2),[1 TMAX])
+xlabel('Month')
+
+
 
 sltot=sum(sum(slevent(:,:,1:TMAX),1));
 % plot(1:TMAX,reshape(sltot,1,TMAX),'--r')

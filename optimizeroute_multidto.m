@@ -2,34 +2,57 @@
 % function newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
 %     subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstolval)
 function newroutepref=optimizeroute_multidto(dtorefvec,subflow,supplyfit,subactivenodes,...
-            subroutepref,dtoEdgeTable,dtoSLRISK,dtoADDVAL,dtoCTRANS,losstolval)
+            subroutepref,dtoEdgeTable,dtoSLRISK,dtoADDVAL,dtoCTRANS,losstolval,dtoslsuc)
 
 % allnodes=2:subnnodes;
-iactiveedges=find(subflow > 0);
+iactiveedges=find(subflow > 0 | dtoslsuc > 0);
 [actrow,actcol]=ind2sub(size(subflow),iactiveedges);
 edgeparms=[subflow(iactiveedges) dtoSLRISK(iactiveedges) iactiveedges actrow actcol];
 if supplyfit <= losstolval  %need to consolidate supply chain
-   edgesort=sortrows(edgeparms,-2); %refernce this array when removing edges
-   edgecut=1:length(iactiveedges)-ceil(length(iactiveedges)*...
-       ((losstolval-supplyfit)/losstolval));   %calc how many edges need to be removed
-   iedgecut=edgecut(edgesort(edgecut,2)> min(edgeparms(:,2)));
-   if length(iedgecut) < length(edgecut)    % are there less high risk edges than need to be removed?
-       %remove as many high risk edges that are greater than minimum risk
-       %edges, and then remove lowest volume edges
-       if isempty(find(iedgecut,1)) == 1
-           secondsort=sortrows(edgeparms,1);
-       else
-           secondsort=sortrows(edgeparms(~ismember(edgeparms(:,3),...
-               edgesort(edgecut(iedgecut),3)),:),1);    %sort based on volume (low to high)
-       end
-       inewcuts=find(ismember(edgesort(:,3),secondsort(1:length(edgecut)-...
-           length(iedgecut),3)) == 1);    %match based on unique iactiveedges
-       edgecut=[edgecut(iedgecut)'; inewcuts]; 
-   end
-   % remove highest risk edges
-%    cuttable=dtoEdgeTable.EndNodes(edgesort(edgecut,4),:);
-%    cuttable=[dtorefvec(edgesort(edgecut,4)) dtorefvec(edgesort(edgecut,5))];
-   for j=1:length(edgecut)
+    edgesort=sortrows(edgeparms,-2); %refernce this array when removing edges
+    %    edgecut=1:min(length(iactiveedges)-ceil(length(iactiveedges)*...
+    %        ((losstolval-supplyfit)/losstolval)),length(iactiveedges)-1);   %calc how many edges need to be removed
+    iprimary=find(edgesort(:,4) == 1 & edgesort(:,5) ~= length(dtorefvec));   %primary movement
+    edgecut=1:min(round(length(iactiveedges)*(supplyfit/...
+        (supplyfit+losstolval))),length(iactiveedges)-1);
+    %    iedgecut=edgecut(edgesort(edgecut,2)> min(edgeparms(:,2)));
+    %    if length(iedgecut) < length(edgecut)    % are there less high risk edges than need to be removed?
+    %        %remove as many high risk edges that are greater than minimum risk
+    %        %edges, and then remove lowest volume edges
+    %        if isempty(find(iedgecut,1)) == 1
+    %            secondsort=sortrows(edgeparms,1);
+    %        else
+    %            secondsort=sortrows(edgeparms(~ismember(edgeparms(:,3),...
+    %                edgesort(edgecut(iedgecut),3)),:),1);    %sort based on volume (low to high)
+    %        end
+    %        inewcuts=find(ismember(edgesort(:,3),secondsort(1:length(edgecut)-...
+    %            length(iedgecut),3)) == 1);    %match based on unique iactiveedges
+    %        edgecut=[edgecut(iedgecut)'; inewcuts];
+    %    end
+    
+    %%% Preserve at least one primary movement
+    
+    minrisk_primary=min(edgesort(iprimary,2));
+    ikeep_primary=find(edgesort(iprimary,2) == minrisk_primary);
+    if length(ikeep_primary) == 1
+        edgecut=edgecut(~ismember(edgecut,[iprimary(ikeep_primary); ...
+            find(edgesort(edgecut,4)==edgesort(iprimary(ikeep_primary),5))]));
+    else
+        maxprofit_primary=max(edgesort(iprimary(ikeep_primary),1));
+        ikeep_primary=ikeep_primary(edgesort(iprimary(ikeep_primary),1) == ...
+            maxprofit_primary);
+        if length(ikeep_primary) == 1
+            edgecut=edgecut(~ismember(edgecut,[iprimary(ikeep_primary); ...
+                find(edgesort(edgecut,4)==edgesort(iprimary(ikeep_primary),5))]));
+        else
+            ikeep_primary=ikeep_primary(ceil(length(ikeep_primary)*rand(1)));
+            edgecut=edgecut(~ismember(edgecut,[iprimary(ikeep_primary); ...
+                find(edgesort(edgecut,4)==edgesort(iprimary(ikeep_primary),5))]));
+        end
+    end
+    
+    % remove highest risk edges
+    for j=1:length(edgecut)
        icheckroute=find(subflow(edgesort(edgecut(j),4),...
            ismember(dtorefvec,dtoEdgeTable.EndNodes(dtoEdgeTable.EndNodes(:,1)==...
            dtorefvec(edgesort(edgecut(j),4)),2))) > 0);
@@ -68,11 +91,12 @@ elseif supplyfit > losstolval    %need to expand supply chain
 %     potnodes=allnodes(~ismember(allnodes,subactivenodes));
     potnodes=dtorefvec(~ismember(dtorefvec,[1; subactivenodes; ...
         dtorefvec(length(dtorefvec))]));
-    edgeadd=1:min(max(ceil(length(subactivenodes)*(1+(supplyfit-losstolval)/...
-        supplyfit))-length(subactivenodes),1),length(potnodes));
-%     if length(potnodes) < length(edgeadd) || isempty(find(potnodes,1)) == 1
+%     edgeadd=1:min(max(ceil(length(subactivenodes)*(1+(supplyfit-losstolval)/...
+%         supplyfit))-length(subactivenodes),1),length(potnodes));
+    edgeadd=1:min(max(ceil((supplyfit-losstolval)/supplyfit),1),length(potnodes));
+
     if isempty(find(potnodes,1)) == 1
-        display('No more nodes to expand')
+%         display('No more nodes to expand')
 %         subroutepref(iactiveedges)=1-SLRISK(iactiveedges);
         % could introduce new edges by modifying ADJ?
     else
