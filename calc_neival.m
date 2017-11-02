@@ -96,7 +96,10 @@ if length(dtos) > 1
             icut=[icut; idto(subicut)];
         end
     end
-    if rankroute(rankroute(:,5) == 0,1) > min(rankroute(icut,1))
+%     if rankroute(rankroute(:,5) == 0,1) > min(rankroute(icut,1))
+%         icut=[icut; find(rankroute(:,5) == 0)];
+%     end
+    if rankroute(rankroute(:,5) == 0,1) > 0
         icut=[icut; find(rankroute(:,5) == 0)];
     end
 else

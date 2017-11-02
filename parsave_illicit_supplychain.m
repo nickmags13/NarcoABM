@@ -2,11 +2,11 @@ function parsave_illicit_supplychain(savefname,EdgeTable,NodeTable,MOV,...
     FLOW,OUTFLOW,TOTCPTL,DTOBDGT,slsuccess,activeroute,STOCK,slperevent,...
     nactnodes,sltot,t_firstmov)
 
-cd X:\model_results\SupplyChain_092717
+cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_103017
 save(savefname,'EdgeTable','NodeTable','MOV','FLOW','OUTFLOW',...
     'TOTCPTL','DTOBDGT','slsuccess','activeroute','STOCK',...
     'slperevent','nactnodes','sltot','t_firstmov','-v7.3')
-cd C:\Users\nmagliocca\Documents\Matlab_code\NarcoLogic
+cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\NarcoABM
 
 
 end

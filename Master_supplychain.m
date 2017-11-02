@@ -34,15 +34,17 @@ for erun=1:ERUNS
         % load experimental parameters file
         [sl_max,sl_min,baserisk,riskmltplr,startstock,sl_learn,rt_learn,...
             losslim,prodgrow,targetseize,intcpctymodel,profitmodel,endstock,...
-            growthmdl]=load_expmntl_parms(ERUNS);
+            growthmdl,timewght,locthink]=load_expmntl_parms(ERUNS);
         
         %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         %@@@@@@@@ Environment @@@@@@@@@
         %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         
         % Load Central America shapefiles and rasters
-        [CAadm0,CAattr0]=shaperead('X:\CentralAmericaData\GADM\g2015_2014_0\CAadm0.shp',...
-            'UseGeoCoords',true);  %polygons
+        [CAadm0,CAattr0]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\GADM\g2015_2014_0\CAadm0.shp',...
+            'UseGeoCoords',true);
+%         [CAadm0,CAattr0]=shaperead('D:\CentralAmericaData\GADM\g2015_2014_0\CAadm0.shp',...
+%             'UseGeoCoords',true);  %polygons
         % calat=cat(1,CAmap(:).Lat);
         % calon=CAmap.Lon;
         % cabox=CAmap.BoundingBox;
@@ -56,21 +58,21 @@ for erun=1:ERUNS
         lonin=extractfield(CAadm0,'Lon')';
         % [CAadm0_latrdc,CAadm0_lonrdc]=reducem(latin,lonin);
         
-        [CAadm1,CAattr1]=shaperead('X:\CentralAmericaData\GADM\g2015_2014_1\CAadm1.shp',...
+        [CAadm1,CAattr1]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\GADM\g2015_2014_1\CAadm1.shp',...
             'UseGeoCoords',true);  %polygons
         % calat=cat(1,CAmap(:).Lat);
         % calon=CAmap.Lon;
         % cabox=CAmap.BoundingBox;
         caadmid1=cat(1,CAattr1.ADM1_CODE);
         
-        [CAcntr,CAcntrattr]=shaperead('X:\CentralAmericaData\CentralAmerica\Vector\CAcentroids.shp','UseGeoCoords',...
+        [CAcntr,CAcntrattr]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\CentralAmerica\Vector\CAcentroids.shp','UseGeoCoords',...
             true);
         cntrlat=cat(1,CAcntr.Lat);
         cntrlon=cat(1,CAcntr.Lon);
         CApts=geopoint(CAcntr);
         
         % Spatial narco vars by administrative departments
-        [dptvars,dptvarsattr]=shaperead('X:\CentralAmericaData\GADM\CA_ALLt_UTM\CA_ALLt_narcovars.shp',...
+        [dptvars,dptvarsattr]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\GADM\CA_ALLt_UTM\CA_ALLt_narcovars.shp',...
             'UseGeoCoords',true);
         dptcode=cat(1,dptvarsattr.ADM1_CODE);
         intlbrdrdmmy=cat(1,dptvarsattr.MAX_1);
@@ -78,13 +80,13 @@ for erun=1:ERUNS
         % meanlat=cat(1,dptvarsattr.MEAN_1);
         
         
-        % [POmills_pts,POattr0]=shaperead('X:\CentralAmericaData\Model_inputs\ca_pomill_pts.SHP','UseGeoCoords',...
+        % [POmills_pts,POattr0]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\ca_pomill_pts.SHP','UseGeoCoords',...
         %     true);
         
         
         %%% Raster layers %%%
         % Central America adminstrative boundaries level 2, objectid
-        [dptgrid,Rdptgrid]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\dptgrid_clp.tif');
+        [dptgrid,Rdptgrid]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\dptgrid_clp.tif');
         dptnodataval=-9999;
         dptgrid=double(dptgrid);
         % dptgrid(dptgrid == dptnodataval)=NaN;     %remove No Data value
@@ -92,7 +94,7 @@ for erun=1:ERUNS
         dptcodes=dptcodes(dptcodes ~= dptnodataval);
         
         % Central America adminstrative boundaries level 0, objectid
-        [cagrid_cntry,Rcagrid_cntry]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\ca_cntry_clp.tif');
+        [cagrid_cntry,Rcagrid_cntry]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\ca_cntry_clp.tif');
         cntrynodataval=255;
         ca_adm0=double(cagrid_cntry);
         ca_adm0(cagrid_cntry == cntrynodataval)=NaN; %remove No Data value
@@ -143,7 +145,7 @@ for erun=1:ERUNS
         dptorder=sortrows(dptmat,2);
         
         % Tree cover
-        [tcov,Rtcov]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\treecov_clp.tif');
+        [tcov,Rtcov]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\treecov_clp.tif');
         treecov=tcov;
         tcovnodataval=255;
         treecov=double(treecov);
@@ -157,20 +159,20 @@ for erun=1:ERUNS
         end
         
         % Distance to coast and country borders
-        [dcoast,Rdcoast]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\dcoast_clp.tif');
+        [dcoast,Rdcoast]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\dcoast_clp.tif');
         dcoastnodataval=-9999;
         dcoast(cagrid_cntry==cntrynodataval)=NaN;
         dcoast(dcoast == dcoastnodataval)=NaN;
         dcoast_suit=1-dcoast./max(max(dcoast));
         
-        % [dbrdr,Rdbrdr]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\dbrdr_clp.tif');
+        % [dbrdr,Rdbrdr]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\dbrdr_clp.tif');
         % brdrnodataval=-9999;
         % dbrdr(cagrid_cntry==cntrynodataval)=NaN;
         % dbrdr(dbrdr == brdrnodataval)=NaN;
         % dbrdr_suit=1-dbrdr./max(max(dbrdr));
         
         % Population density as a proxy for remoteness
-        [popden,Rpopden]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\popden_clp.tif');
+        [popden,Rpopden]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\popden_clp.tif');
         popnodataval=-1;
         popden=double(popden);
         popden(cagrid_cntry==cntrynodataval)=NaN;
@@ -182,7 +184,7 @@ for erun=1:ERUNS
         pop_suit(popden <= popq(3))=1-popden(popden <= popq(3))./popq(3);
         
         % Topography
-        [slope,Rslope]=geotiffread('X:\CentralAmericaData\Model_inputs\ca_slope_250m.tif');
+        [slope,Rslope]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\ca_slope_250m.tif');
         slope(cagrid_cntry==cntrynodataval)=NaN;
         slopeclass=[8 16 30 31; 0 25 50 100]';   % GAEZ (see Magliocca et al., 2013, PLOS ONE)
         slp_suit=zeros(size(slope));
@@ -192,7 +194,7 @@ for erun=1:ERUNS
         slp_suit(slope >= slopeclass(4,1))=1-slopeclass(4,2)/100;
         
         % Market Access
-        [mktacc,Rmktacc]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\mktacc_clp.tif');
+        [mktacc,Rmktacc]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\mktacc_clp.tif');
         manodataval=-9999;
         mktacc=double(mktacc);
         mktacc(cagrid_cntry==cntrynodataval)=NaN;
@@ -201,21 +203,21 @@ for erun=1:ERUNS
         % submasuit=mktacc./median(mktacc(~isnan(mktacc)));
         
 %         % Maize Yield
-%         [mazyld,Rmazyld]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\mazyld_clp.tif');
+%         [mazyld,Rmazyld]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\mazyld_clp.tif');
 %         maznodataval=-9999;
 %         mazyld=double(mazyld);
 %         mazyld(cagrid_cntry==cntrynodataval)=NaN;
 %         mazyld(mazyld == maznodataval)=NaN;
 %         
 %         % Oil Palm Yield
-%         [plmyld,Rplmyld]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\plmyld_clp.tif');
+%         [plmyld,Rplmyld]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\plmyld_clp.tif');
 %         plmnodataval=-9999;
 %         plmyld=double(plmyld);
 %         plmyld(cagrid_cntry==cntrynodataval)=NaN;
 %         plmyld(plmyld == plmnodataval)=NaN;
 %         
 %         % Cattle density
-%         [ctlden,Rctlden]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\ctlden_clp.tif');
+%         [ctlden,Rctlden]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\ctlden_clp.tif');
 %         plmnodataval=-9999;
 %         ctlden=double(ctlden);
 %         ctlden(cagrid_cntry==cntrynodataval)=NaN;
@@ -232,7 +234,7 @@ for erun=1:ERUNS
         % 7. plantation — citrus, vineyard, coffee, etc.
         % 8. water
         % 9. plantation tree — eucalyptus, pine, etc.
-        [luint,Rluint]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\luint_clp.tif');
+        [luint,Rluint]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\luint_clp.tif');
         lunodataval=0;
         luint(cagrid_cntry==cntrynodataval)=NaN;
         luint(luint == lunodataval)=NaN;
@@ -242,7 +244,7 @@ for erun=1:ERUNS
         lu_suit(luint == 3 | luint == 4 | luint == 5)=1;
         
         % Protected Areas
-        [protarea,Rprotarea]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\protarea_clp.tif');
+        [protarea,Rprotarea]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\protarea_clp.tif');
         protnodataval=255;
         protarea=double(protarea);
         protarea(cagrid_cntry==cntrynodataval)=NaN;
@@ -298,11 +300,12 @@ for erun=1:ERUNS
         losstol=losslim(erun);        % tolerance threshold for loss due to S&L, triggers route fragmentation
         stock_0=startstock(erun);     %initial cocaine stock at producer node
         stock_max=endstock(erun);       
-        startvalue=385; %producer price, $385/kg
-        deltavalue=8;   %added value for distance traveled $8/kilo/km
+        startvalue=4500; %producer price, $385/kg: Zoe's numbers 4,500 in Panama
+        deltavalue=4.46;   %added value for distance traveled $8/kilo/km: Zoe's numbers $4.46
         nodeloss=0;     % amount of cocaine that is normally lost (i.e., non-interdiction) at each node
-        ctrans_inland=3.5;  % transportation costs (kg/km) over-ground
-        ctrans_coast=1.5;     % transportation costs (kg/km) via plane or boat
+        ctrans_inland=371;  % transportation costs (kg/km) over-ground (3.5), includes
+        ctrans_coast=160;     % transportation costs (kg/km) via plane or boat (1.5)
+        ctrans_air=3486;
         delta_rt=rt_learn(erun);       % reinforcement learning rate for network agent
         %(i.e., weight on new information for successful routes)
         % note: faster learning rate than for interdiction
@@ -321,9 +324,9 @@ for erun=1:ERUNS
         %%% Nodes agents %%%
         % perceived risk model
         alpharisk=2;  %baseline is 0.001
-        timewght_0=1;     %time discounting for subjective risk perception (Gallagher, 2014), range[0,1.05]
         % betarisk=alpharisk/slprob_0-alpharisk;
         betarisk=0.5;
+        timewght_0=timewght(erun);
 %         slprob_0=alpharisk/(1+alpharisk+betarisk);     % baseline probability of seisure and loss event
         slprob_0=1/(sum(timewght_0.^(0:12))+betarisk);
         nodepct=0.0001; %percentage of high suitability cells that contain possible nodes
@@ -457,7 +460,7 @@ for erun=1:ERUNS
         SLRISK=slprob_0*ones(nnodes);     % dynamic perceived risk of seisure and loss per edge by node agent
         INTRISK=zeros(nnodes,TMAX); % dynamic perceived risk of interdiction at each node
         CPCTY=zeros(nnodes);     % maximum flow possible between nodes
-        CTRANS=zeros(nnodes);   % transportation costs between nodes
+        CTRANS=zeros(nnodes,nnodes,TMAX);   % transportation costs between nodes
         RMTFAC=zeros(nnodes);   % landscape factor (remoteness) influencing S&L risk
         COASTFAC=zeros(nnodes);   % landscape factor (distance to coast) influencing S&L risk
         LATFAC=zeros(nnodes);   % decreased likelihood of S&L moving north to reflect greater DTO investment
@@ -474,7 +477,8 @@ for erun=1:ERUNS
         
         STOCK=zeros(nnodes,TMAX);       %dynamic cocaine stock at each node
         PRICE=zeros(nnodes,TMAX);       % $/kilo at each node
-        RISKPREM=zeros(ndto,TMAX);      % risk premium after Caulkins et al. (1993)
+%         RISKPREM=zeros(ndto,TMAX);      % risk premium after Caulkins et al. (1993)
+        RISKPREM=ones(nnodes,nnodes,TMAX);
         INFLOW=zeros(nnodes,TMAX);       % dynamic stock of cocaine coming into at each node
         OUTFLOW=zeros(nnodes,TMAX);       % dynamic stock of cocaine leaving from each node
         TOTCPTL=zeros(nnodes,TMAX);     % total value of cocaine at each node
@@ -548,6 +552,7 @@ for erun=1:ERUNS
         icoastdist=sub2ind(size(dcoast),NodeTable.Row,NodeTable.Col);
         coastdist=dcoast(icoastdist);  %convert to km
         NodeTable.CoastDist=coastdist;
+        NodeTable.CoastDist(1)=0;
         % coastfac=2-NodeTable.CoastDist(:)./max(NodeTable.CoastDist(:));
         coastfac=[0; NodeTable.CoastDist(2:nnodes-1)./max(NodeTable.CoastDist(:)); 0];
         nwvec=sqrt(0.9.*NodeTable.Lat(2:nnodes-1).^2+0.1.*NodeTable.Lon(2:nnodes-1).^2);
@@ -581,26 +586,24 @@ for erun=1:ERUNS
             COASTFAC(j,ADJ(j,:)==1)=coastfac(ADJ(j,:)==1);
             LATFAC(j,ADJ(j,:)==1)=latfac(ADJ(j,:)==1);
             % Transportation costs
+            ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
+            idist_ground=(DIST(j,ireceiver)  >0 & DIST(j,ireceiver) <= 500);
+            idist_air=(DIST(j,ireceiver) > 500);
+            
+            CTRANS(j,ireceiver(idist_ground),TSTART)=ctrans_inland.*...
+                DIST(j,ireceiver(idist_ground))./DIST(1,nnodes);
+            CTRANS(j,ireceiver(idist_air),TSTART)=ctrans_air.*...
+                DIST(j,ireceiver(idist_air))./DIST(1,nnodes);
+            
             if NodeTable.CoastDist(j) < 20
                 ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
                 idist_coast=(NodeTable.CoastDist(ireceiver) < 20);
                 idist_inland=(NodeTable.CoastDist(ireceiver) >= 20);
-                %         CTRANS(j,ireceiver(idist_coast))=ctrans_coast.*...
-                %             COASTFAC(j,ireceiver(idist_coast)).*DIST(j,ireceiver(idist_coast));
-                %         CTRANS(j,ireceiver(idist_inland))=ctrans_inland.*...
-                %             RMTFAC(j,ireceiver(idist_inland)).*DIST(j,ireceiver(idist_inland));
-                CTRANS(j,ireceiver(idist_coast))=ctrans_coast.*...
-                    DIST(j,ireceiver(idist_coast));
-                CTRANS(j,ireceiver(idist_inland))=ctrans_inland.*...
-                    DIST(j,ireceiver(idist_inland));
-            else
-                ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
-                idist_ground=(DIST(j,ireceiver)  >0 & DIST(j,ireceiver) <= 500);
-                idist_air=(DIST(j,ireceiver) > 500);
-                %         CTRANS(j,ireceiver)=ctrans_inland.*RMTFAC(j,ireceiver).*...
-                %             DIST(j,ireceiver);
-                CTRANS(j,ireceiver(idist_ground))=ctrans_inland.*DIST(j,ireceiver(idist_ground));
-                CTRANS(j,ireceiver(idist_air))=ctrans_coast.*DIST(j,ireceiver(idist_air));
+                
+                CTRANS(j,ireceiver(idist_coast),TSTART)=ctrans_coast.*...
+                    DIST(j,ireceiver(idist_coast))./DIST(1,nnodes);
+                %                 CTRANS(j,ireceiver(idist_inland),TSTART)=ctrans_inland.*...
+                %                     DIST(j,ireceiver(idist_inland))./DIST(1,nnodes);
             end
             
             %     % Create gridded distance from node for calculating land use
@@ -636,9 +639,21 @@ for erun=1:ERUNS
                 NodeTable.Col(nn)))==1,1,'first');
             [mindist,imindist]=min([westdir eastdir northdir southdir]);
             if imindist == 1 || imindist == 4
-                NodeTable.DTO(nn)=1;
+%                 if (eastdir-westdir)/eastdir < 0.2
+%                     NodeTable.DTO(nn)=2;
+%                 elseif (northdir-southdir)/northdir < 0.2
+%                     NodeTable.DTO(nn)=2;
+%                 else
+                    NodeTable.DTO(nn)=1;
+%                 end
             else
-                NodeTable.DTO(nn)=2;
+                if (westdir-eastdir)/westdir < 0.2
+                    NodeTable.DTO(nn)=1;
+                elseif (southdir-northdir)/southdir < 0.2
+                    NodeTable.DTO(nn)=1;
+                else
+                    NodeTable.DTO(nn)=2;
+                end
             end
         end
         
@@ -667,12 +682,17 @@ for erun=1:ERUNS
         twght=timewght_0*ones(nnodes,1);    % time weighting for dynamic, subjective perceived risk of interdiction event
         
         %%% Set-up trafficking netowrk benefit-cost logic  %%%%%%%%%%%%
-        ltcoeff=ones(nnodes,1);
+        ltcoeff=locthink(erun)*ones(nnodes,1);
         % routepref(:,:,TSTART+1)=ADJ;
-        margprofit=ADDVAL-CTRANS;
+%         margprofit=ADDVAL-CTRANS(:,:,TSTART);
+        margval=zeros(nnodes,nnodes,TMAX);
+        for q=1:nnodes-1
+            margval(q,q+1:nnodes,TSTART)=PRICE(q+1:nnodes,TSTART)-...
+                PRICE(q,TSTART);
+        end
         for nd=1:ndto
             idto=(NodeTable.DTO == nd);
-            routepref(1,idto,TSTART+1)=(margprofit(1,idto)==max(margprofit(1,idto)));
+            routepref(1,idto,TSTART+1)=(margval(1,idto)==max(margval(1,idto)));
         end
         routepref(:,nnodes,TSTART+1)=1;
         totslrisk(TSTART+1)=1;
@@ -680,7 +700,7 @@ for erun=1:ERUNS
         OWN=zeros(size(LANDSUIT));  % node agent land ownership
         IOWN=cell(nnodes,TMAX);     % dynamic list of owned parcels
         
-        
+        CTRANS(:,:,TSTART+1)=CTRANS(:,:,TSTART);
         %%% Set-up figure for trafficking movie
         MOV=zeros(nnodes,nnodes,TMAX);
         
@@ -776,12 +796,13 @@ for erun=1:ERUNS
                         end
                     end
                     %%% Procedure for selecting routes based on expected profit %%%
-                    c_trans=CTRANS(n,inei);
+                    c_trans=CTRANS(n,inei,t);
                     p_sl=SLRISK(n,inei);
                     %          p_int=INTRISK(n,inei); %currently not used
-                    y_node=ADDVAL(n,inei);
-%                     q_node=min(STOCK(n,t)./length(inei),CPCTY(n,inei));
-                    q_node=min(WGHT(n,inei).*(STOCK(n,t)./length(inei)),CPCTY(n,inei));
+%                     y_node=ADDVAL(n,inei);
+                    y_node=PRICE(inei,t)-PRICE(n,t);
+                    q_node=min(STOCK(n,t)./length(inei),CPCTY(n,inei));
+%                     q_node=min(WGHT(n,inei).*(STOCK(n,t)./length(inei)),CPCTY(n,inei));
                     lccf=ltcoeff(n);
                     totstock=STOCK(n,t);
                     totcpcty=CPCTY(n,inei);
@@ -805,31 +826,34 @@ for erun=1:ERUNS
                     %              totstock,totcpcty,tslrisk);
                     [neipick,neivalue,valuex]=calc_neival(c_trans,p_sl,...
                         y_node,q_node,lccf,rtpref,tslrisk,dtonei,profmdl,cutflag);
-                    
+                    inei=inei(neipick);
+
                     % weight according to salience value fuction
                     if isempty(find(valuex <= 0,1)) == 0
-                        inegval=(valuex < 0);
-                        iposval=(valuex > 0);
-                        izeroval=(valuex == 0);
-                        WGHT(n,inei(inegval))=(1-delta_rt)*WGHT(n,inei(inegval))+...
-                            delta_rt*WGHT(n,inei(inegval)).*(1-(abs(valuex(inegval))./...
-                            sum([abs(valuex(inegval)); valuex(iposval)])))';
-                        if isempty(find(WGHT(n,inei(inegval)) <= 0,1)) == 0
-                            display('Negative Weight')
-                            keyboard
-                        end
-                        WGHT(n,inei(izeroval))=(1-delta_rt)*WGHT(n,inei(izeroval))+...
-                            delta_rt*WGHT(n,inei(izeroval));
-                        if isempty(find(valuex(iposval),1)) == 0
-                            WGHT(n,inei(iposval))=(1-delta_rt)*WGHT(n,inei(iposval))+...
-                                delta_rt*(valuex(iposval)./sum(valuex(iposval)))';
-                        end
+                        WGHT(n,inei)=(1-SLRISK(n,inei))./sum(1-SLRISK(n,inei));
+%                         inegval=(valuex < 0);
+%                         iposval=(valuex > 0);
+%                         izeroval=(valuex == 0);
+%                         WGHT(n,inei(inegval))=(1-delta_rt)*WGHT(n,inei(inegval))+...
+%                             delta_rt*WGHT(n,inei(inegval)).*(1-(abs(valuex(inegval))./...
+%                             sum([abs(valuex(inegval)); valuex(iposval)])))';
+%                         if isempty(find(WGHT(n,inei(inegval)) <= 0,1)) == 0
+%                             display('Negative Weight')
+%                             keyboard
+%                         end
+%                         WGHT(n,inei(izeroval))=(1-delta_rt)*WGHT(n,inei(izeroval))+...
+%                             delta_rt*WGHT(n,inei(izeroval));
+%                         if isempty(find(valuex(iposval),1)) == 0
+%                             WGHT(n,inei(iposval))=(1-delta_rt)*WGHT(n,inei(iposval))+...
+%                                 delta_rt*(valuex(iposval)./sum(valuex(iposval)))';
+%                         end
                     else
-                        WGHT(n,inei)=(1-delta_rt)*WGHT(n,inei)+delta_rt*...
-                            (valuex./sum(valuex))';
+%                         WGHT(n,inei)=(1-delta_rt)*WGHT(n,inei)+delta_rt*...
+%                             (valuex./sum(valuex))';
+                        WGHT(n,inei)=(max(valuex(neipick),0)./sum(max(valuex(neipick),0)))';
                     end
                     
-                    inei=inei(neipick);
+                    
                     activeroute(n,t)=mat2cell(inei',length(inei),1);
                     
                     neiset=unique(NodeTable.DTO(inei));
@@ -852,7 +876,7 @@ for erun=1:ERUNS
                         end
                         OUTFLOW(n,t)=sum(FLOW(n,inei,t));
                         STOCK(n,t)=STOCK(n,t)-OUTFLOW(n,t);
-                        nodecosts=sum(FLOW(n,inei,t).*CTRANS(n,inei));
+                        nodecosts=sum(FLOW(n,inei,t).*CTRANS(n,inei,t));
                         %                 TOTCPTL(n,t)=TOTCPTL(n,t)-sum(FLOW(n,inei,t).*CTRANS(n,inei));
                         FLOW(n,inei(isl),t)=0;     % remove from trafficking route due to S&L event
                         STOCK(inei,t)=STOCK(inei,t)+FLOW(n,inei,t)';
@@ -880,7 +904,7 @@ for erun=1:ERUNS
                         OUTFLOW(n,t)=sum(FLOW(n,inei,t));
                         STOCK(n,t)=STOCK(n,t)-OUTFLOW(n,t);
                         STOCK(inei,t)=STOCK(inei,t)+FLOW(n,inei,t)';
-                        nodecosts=sum(FLOW(n,inei,t).*CTRANS(n,inei));
+                        nodecosts=sum(FLOW(n,inei,t).*CTRANS(n,inei,t));
                         noderevenue=sum(FLOW(n,inei,t).*PRICE(inei,t)');
                         TOTCPTL(inei,t)=TOTCPTL(inei,t)-(FLOW(n,inei,t)'.*PRICE(inei,t));
                         ICPTL(n,t)=rentcap*sum(FLOW(n,inei).*ADDVAL(n,inei));
@@ -928,7 +952,8 @@ for erun=1:ERUNS
                         intrdoccur,t_eff,TSTART,alpharisk,betarisk,timeweight);
                     SLRISK(n,fwdnei)=sl_risk;
 %                     SLRISK(n,fwdnei)=(1-delta_rt)*SLRISK(n,fwdnei)+delta_rt*sl_risk;
-                    
+%                     RISKPREM(n,fwdnei,t)=(1-delta_rt).*RISKPREM(n,fwdnei,t-1)+...
+%                         delta_rt.*((SLRISK(n,fwdnei)./baserisk(erun)).^riskmltplr(erun));
                     if isempty(find(sl_risk,1)) == 0
                         avgslrisk(n,t)=mat2cell(SLRISK(n,activeroute{n,t}),1,...
                             length(activeroute{n,t}));
@@ -941,6 +966,9 @@ for erun=1:ERUNS
                     NodeTable.Stock(:)=STOCK(:,t);
                     NodeTable.Capital(:)=TOTCPTL(:,t);
                 end
+                RISKPREM(:,:,t)=max((1-delta_rt).*RISKPREM(:,:,t-1)+...
+                        delta_rt.*((SLRISK./baserisk(erun)).^riskmltplr(erun)),1);
+                        
                 
                 %%%%%%%%% Loss of node control %%%%%%%%%%%
                 %         if n ~= 1 && n ~= nnodes && isempty(find(OUTFLOW(n,1:t),1)) == 0 && ...
@@ -954,6 +982,11 @@ for erun=1:ERUNS
                 %%% Make trafficking movie
                 MOV(:,n,t)=STOCK(:,t);      % Capture stock data after each node iteration
             end
+            %%% Risk premium on cost of doing business (transport
+            %%% costs)
+%             CTRANS(:,:,t+1)=max(CTRANS(:,:,t).*RISKPREM(:,:,t),CTRANS(:,:,TSTART));
+            CTRANS(:,:,t+1)=CTRANS(:,:,t).*RISKPREM(:,:,t);
+            
             totslrisk(t+1)=mean(cat(2,avgslrisk{:,t}));
             %%% Updating interdiction event probability
             subslsuc=slsuccess(:,:,t);
@@ -967,16 +1000,21 @@ for erun=1:ERUNS
             SLPROB(:,:,t+1)=subslprob;
             %%% Interdiction capacity
             if intcpctymodel(erun) == 1   %decreasing capacity when target missed (postive feedback)
-                %             slcpcty(t+1)=min(max(ceil((1-delta_sl)*slcpcty(t)+delta_sl*...
-                %                 (sum(sum(slsuccess(:,:,t)))-sum(sum(mean(slsuccess(:,:,TSTART+1:t-1),3))))),...
-                %                 slcpcty_0),slcpcty_max);
-                slcpcty(t+1)=min(max(ceil((1-delta_sl)*slcpcty(t)+delta_sl*...
-                    slcpcty(t)*sum(sum(slsuccess(:,:,t)))/(targetseize(erun)*...
-                    OUTFLOW(1,t))),slcpcty_0),slcpcty_max);
+%                 if t <= 24
+%                     slcpcty(t+1)=slcpcty(t);    %two-year lag based on CCDB data
+%                 else
+                    slcpcty(t+1)=min(max(ceil((1-delta_sl)*slcpcty(t)+delta_sl*...
+                        slcpcty(t)*sum(sum(slsuccess(:,:,t)))/(targetseize(erun)*...
+                        OUTFLOW(1,t))),slcpcty_0),slcpcty_max);
+%                 end
             elseif intcpctymodel(erun) == 2   %increasing capacity (negative feedback)
-                slcpcty(t+1)=min(max(ceil((1-delta_sl)*slcpcty(t)+delta_sl*...
-                    slcpcty(t)*(1-sum(sum(slsuccess(:,:,t)))/(targetseize(erun)*...
-                    OUTFLOW(1,t)))),slcpcty_0),slcpcty_max);
+%                 if t <= 24
+%                     slcpcty(t+1)=slcpcty(t);    %two-year lag based on CCDB data
+%                 else
+                    slcpcty(t+1)=min(max(ceil((1-delta_sl)*slcpcty(t)+delta_sl*...
+                        slcpcty(t)*(1-sum(sum(slsuccess(:,:,t)))/(targetseize(erun)*...
+                        OUTFLOW(1,t)))),slcpcty_0),slcpcty_max);
+%                 end
             end
             %     INTRDPROB(:,t+1)=INTRDPROB(:,t);
             
@@ -987,6 +1025,10 @@ for erun=1:ERUNS
             activenodes=unique(cat(1,activeroute{:,t}));
             actedge=activeroute(:,t);
             
+            % Calcuate updated marginal profit
+            for q=1:nnodes-1
+                margval(q,q+1:nnodes,t)=PRICE(q+1:nnodes,t)-PRICE(q,t);
+            end
             %%%%%%%%% Route Optimization %%%%%%%%%%%
             for dt=1:ndto
                 idto=find(NodeTable.DTO == dt);
@@ -1000,9 +1042,15 @@ for erun=1:ERUNS
                 subnnodes=length(idto);
                 subroutepref=routepref(dtorefvec,dtorefvec,t);
                 subactivenodes=activenodes(ismember(activenodes,idto));
-                subactedges=actedge(dtorefvec);
+                subactedges=cat(1,actedge{dtorefvec});
+                ikeep=(NodeTable.DTO(subactedges)==dt);
+                dtoACTEDGES=subactedges(ikeep);
+                idtoactedges=find(ismember(dtorefvec,dtoACTEDGES)==1);
                 subflow=FLOW(dtorefvec,dtorefvec,t);
                 dtoslsuc=slsuccess(dtorefvec,dtorefvec,t);
+                
+                % locate active edges
+                [irow,icol]=ind2sub(size(subflow),find(subflow > 0));
                 
                 sendedge=ismember(EdgeTable.EndNodes(:,1),dtorefvec);
                 %         recedge=ismember(EdgeTable.EndNodes(:,2),dtorefvec);
@@ -1010,8 +1058,8 @@ for erun=1:ERUNS
                 dtoEdgeTable=EdgeTable(sendedge,:);
                 dtoEdgeTable=dtoEdgeTable(ismember(dtoEdgeTable.EndNodes(:,2),dtorefvec),:);
                 dtoSLRISK=SLRISK(dtorefvec,dtorefvec);
-                dtoADDVAL=ADDVAL(dtorefvec,dtorefvec);
-                dtoCTRANS=CTRANS(dtorefvec,dtorefvec);
+                dtoADDVAL=margval(dtorefvec,dtorefvec,t);
+                dtoCTRANS=CTRANS(dtorefvec,dtorefvec,t);
                 %%% calculate losses from S&L events
                 % volume-based - does not matter where in supply chain
                 %     supplyfit=STOCK(iendnode,t)/stock_0;
@@ -1021,12 +1069,17 @@ for erun=1:ERUNS
                 ipossl=find(dtoslsuc > 0);
                 [nrow,ncol]=ind2sub(size(dtoslsuc),ipossl);
                 %     losstolval=losstol*stock_0*PRICE(nnodes,t); %value-based loss threshold
-%                 if STOCK(nnodes,t)==0
-%                     keyboard
-%                 end
-                supplyfit=sum(dtoslsuc(ipossl).*PRICE(dtorefvec(ncol),t));  %value-based loss calc
-                losstolval=losstol*sum(subflow(1,:)+dtoslsuc(1,:))*PRICE(nnodes,t);
-                
+
+%                 supplyfit=sum(dtoslsuc(ipossl).*(PRICE(ncol,t)-PRICE(nrow,t)));
+                supplyfit=sum(dtoslsuc(ipossl).*((PRICE(dtorefvec(ncol),t)-...
+                    PRICE(dtorefvec(nrow),t))-dtoCTRANS(ipossl)));
+%                 supplyfit=sum(dtoslsuc(ipossl).*PRICE(dtorefvec(ncol),t));  %value-based loss calc
+%                 losstolval=losstol*sum(subflow(1,:)+dtoslsuc(1,:))*PRICE(nnodes,t);
+                losstolval=losstol*sum(subflow(subflow > 0).*((PRICE(dtorefvec(icol),t)-...
+                    PRICE(dtorefvec(irow),t))-dtoCTRANS(subflow > 0)));
+                if supplyfit < 0 
+                    keyboard
+                end
                 if isempty(find(supplyfit ~= 0,1)) == 1 && isempty(find(losstolval ~= 0,1)) == 1
                     supplyfit=0.1;
                 end
@@ -1044,48 +1097,43 @@ for erun=1:ERUNS
                 if isempty(find(newroutepref(1,:),1)) == 1
                     display('lost primary movement')
                 end
-                %         RISKPREM(dt,t+1)=mean(mean(SLRISK(dtoEdgeTable.EndNodes(ismember(...
-                %             dtoEdgeTable.EndNodes(:,2),subactivenodes),1),dtoEdgeTable.EndNodes(ismember(...
-                %             dtoEdgeTable.EndNodes(:,1),subactivenodes),2))./losstol))^riskmltplr(erun);
-                %         if isempty(find(ipossl,1)) == 0
-                %             keyboard
-                %         end
-                %         recrisk=cat(1,SLRISK(dtoEdgeTable.EndNodes(ismember(dtoEdgeTable.EndNodes(:,2),...
-                %             subactivenodes),1),subactivenodes));
-                %         sendrisk=SLRISK(subactivenodes,dtoEdgeTable.EndNodes(ismember(dtoEdgeTable.EndNodes(:,1),...
-                %             subactivenodes),2))';
-                %         rterisk=[recrisk; sendrisk];
-                %         RISKPREM(dt,t+1)=mean(reshape(rterisk,size(rterisk,1)*size(rterisk,2),1)./...
-                %             baserisk(erun))^riskmltplr(erun);
-                recrisk=[];
-                sendrisk=[];
-                rterisk=[];
-                for ic=1:length(dtorefvec)
-                    if isempty(activeroute{dtorefvec(ic),t}) == 1
-                        continue
-                    else
-                        %                 recrisk=[recrisk; dtorefvec(ic)];
-                        %                 sendrisk=[sendrisk; activeroute{dtorefvec(ic),t}];
-                        recrisk=[recrisk; dtorefvec(ic)];
-                        sendrisk=[sendrisk; activeroute{dtorefvec(ic),t}];
-                        rterisk=[rterisk; SLRISK(dtorefvec(ic),activeroute{dtorefvec(ic),t})'];
-                    end
-                end
-                RISKPREM(dt,t+1)=mean(rterisk./baserisk(erun))^riskmltplr(erun);
-                %         RISKPREM(dt,t+1)=mean(mean(dtoSLRISK./baserisk(erun)))^riskmltplr(erun);
-                PRICE(idto,t+1)=max(PRICE(idto,t)*RISKPREM(dt,t+1),PRICE(idto,TSTART));
+%                 %%% Network level risk premium on price
+%                 recrisk=[];
+%                 sendrisk=[];
+%                 rterisk=[];
+%                 for ic=1:length(dtorefvec)
+%                     if isempty(activeroute{dtorefvec(ic),t}) == 1
+%                         continue
+%                     else
+%                         %                 recrisk=[recrisk; dtorefvec(ic)];
+%                         %                 sendrisk=[sendrisk; activeroute{dtorefvec(ic),t}];
+%                         incldnode=activeroute{dtorefvec(ic),t};
+%                         irtecheck=ismember(incldnode,dtorefvec);
+%                         
+%                         recrisk=[recrisk; incldnode(irtecheck)];
+%                         sendrisk=[sendrisk; dtorefvec(ic)];
+%                         rterisk=[rterisk; SLRISK(dtorefvec(ic),incldnode(irtecheck))'];
+%                     CTRANS(dtorefvec(ic),incldnode(irtecheck))=max(...
+%                         CTRANS(dtorefvec(ic),incldnode(irtecheck)).*...
+%                         mean(rterisk./baserisk(erun))^riskmltplr(erun),...
+%                         CTRANS(dtorefvec(ic),incldnode(irtecheck)));
+%                     end
+%                 end
+%                 RISKPREM(dt,t+1)=mean(rterisk./baserisk(erun))^riskmltplr(erun);
+%                 %         RISKPREM(dt,t+1)=mean(mean(dtoSLRISK./baserisk(erun)))^riskmltplr(erun);
+%                 PRICE(idto,t+1)=max(PRICE(idto,t)*RISKPREM(dt,t+1),PRICE(idto,TSTART));
             end
             %     routepref(:,:,t+1)=routepref(:,:,t);
-            if isempty(find(activeroute{1,t} == nnodes,1)) == 0
-                PRICE(nnodes,t+1)=max((mean(SLRISK([1; activenodes(FLOW(activenodes,nnodes,t)~=0)],nnodes)./...
-                    baserisk(erun))^riskmltplr(erun))*PRICE(nnodes,t),PRICE(nnodes,TSTART));
-            else
-                PRICE(nnodes,t+1)=max((mean(SLRISK(activenodes(FLOW(activenodes,nnodes,t)~=0),nnodes)./...
-                    baserisk(erun))^riskmltplr(erun))*PRICE(nnodes,t),PRICE(nnodes,TSTART));
-            end
+%             if isempty(find(activeroute{1,t} == nnodes,1)) == 0
+%                 PRICE(nnodes,t+1)=max((mean(SLRISK([1; activenodes(FLOW(activenodes,nnodes,t)~=0)],nnodes)./...
+%                     baserisk(erun))^riskmltplr(erun))*PRICE(nnodes,t),PRICE(nnodes,TSTART));
+%             else
+%                 PRICE(nnodes,t+1)=max((mean(SLRISK(activenodes(FLOW(activenodes,nnodes,t)~=0),nnodes)./...
+%                     baserisk(erun))^riskmltplr(erun))*PRICE(nnodes,t),PRICE(nnodes,TSTART));
+%             end
             %     PRICE(nnodes,t+1)=(mean(mean(max(SLRISK(:,nnodes)./baserisk(erun),1)))^...
             %         riskmltplr(erun))*PRICE(nnodes,t);
-            %     PRICE(:,t+1)=PRICE(:,t);
+            PRICE(:,t+1)=PRICE(:,t);
             if growthmdl(erun) == 1
                 STOCK(1,t+1)=stock_0+(prodgrow(erun)*ceil((t-TSTART)/12));    %additional production to enter network next time step
             elseif growthmdl(erun) == 2
@@ -1138,7 +1186,7 @@ for erun=1:ERUNS
         end
         t_firstmov(nnodes)=find(STOCK(nnodes,:)>0,1,'first');
         
-        savefname=sprintf('supplychain_results_092717_%d_%d',erun,mrun);
+        savefname=sprintf('supplychain_results_103017_%d_%d',erun,mrun);
         parsave_illicit_supplychain(savefname,EdgeTable,NodeTable,MOV,FLOW,OUTFLOW,...
             TOTCPTL,DTOBDGT,slsuccess,activeroute,STOCK,slperevent,...
             nactnodes,sltot,t_firstmov);
@@ -1146,4 +1194,4 @@ for erun=1:ERUNS
     end
 end
 toc
-delete(pooltobj)
+delete(poolobj)

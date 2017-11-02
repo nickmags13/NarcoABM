@@ -1241,6 +1241,9 @@ end
 
 t_firstmov=zeros(nnodes,1);
 for n=2:nnodes-1
+    if isempty(cat(2,activeroute{3,:})) == 1
+        continue
+    end
     t_firstmov(n)=find(TOTCPTL(n,:) > 0,1,'first');
 end
 t_firstmov(nnodes)=find(STOCK(nnodes,:)>0,1,'first');
