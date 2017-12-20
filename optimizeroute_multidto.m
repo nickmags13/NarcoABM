@@ -1,7 +1,7 @@
 %%%%%%% Top-down supply chain optimization %%%%%%%%
 % function newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
 %     subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstolval)
-function newroutepref=optimizeroute_multidto(dtorefvec,subflow,supplyfit,subactivenodes,...
+function newroutepref=optimizeroute_multidto(dtorefvec,subflow,supplyfit,expmax,...
             subroutepref,dtoEdgeTable,dtoSLRISK,dtoADDVAL,dtoCTRANS,losstolval,dtoslsuc)
 
 % allnodes=2:subnnodes;
@@ -94,7 +94,7 @@ elseif supplyfit > losstolval    %need to expand supply chain
 %     edgeadd=1:min(max(ceil(supplyfit/...
 %         (sum(dtoADDVAL(iactiveedges)- dtoCTRANS(iactiveedges))*...
 %         sum(sum(subflow)))),1),10);
-    edgeadd=1:min(max(ceil(supplyfit/losstolval),1),min(10,length(potnodes)));
+    edgeadd=1:min(max(ceil(supplyfit/losstolval),1),min(expmax,length(potnodes)));
     
     
     if isempty(find(potnodes,1)) == 1

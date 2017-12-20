@@ -1102,6 +1102,9 @@ for erun=1:ERUNS
                 % value-based - price varies with location in supply chain
                 ipossl=find(dtoslsuc > 0);
                 [nrow,ncol]=ind2sub(size(dtoslsuc),ipossl);
+                
+                flowvalues=subflow(subflow > 0).*((PRICE(dtorefvec(icol),t)-...
+                    PRICE(dtorefvec(irow),t))-dtoCTRANS(subflow > 0));
                 %     losstolval=losstol*stock_0*PRICE(nnodes,t); %value-based loss threshold
 
 %                 supplyfit=sum(dtoslsuc(ipossl).*(PRICE(ncol,t)-PRICE(nrow,t)));
@@ -1109,8 +1112,9 @@ for erun=1:ERUNS
                     PRICE(dtorefvec(nrow),t))-dtoCTRANS(ipossl)));
 %                 supplyfit=sum(dtoslsuc(ipossl).*PRICE(dtorefvec(ncol),t));  %value-based loss calc
 %                 losstolval=losstol*sum(subflow(1,:)+dtoslsuc(1,:))*PRICE(nnodes,t);
-                losstolval=losstol*sum(subflow(subflow > 0).*((PRICE(dtorefvec(icol),t)-...
-                    PRICE(dtorefvec(irow),t))-dtoCTRANS(subflow > 0)));
+%                 losstolval=losstol*sum(subflow(subflow > 0).*((PRICE(dtorefvec(icol),t)-...
+%                     PRICE(dtorefvec(irow),t))-dtoCTRANS(subflow > 0)));
+                losstolval=losstol*max(flowvalues);
 
                 if isempty(find(supplyfit ~= 0,1)) == 1 && isempty(find(losstolval ~= 0,1)) == 1
                     supplyfit=0.1;
@@ -1119,10 +1123,10 @@ for erun=1:ERUNS
                 %call top-down route optimization
                 %     newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
                 %         subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstolval);
-%                 if t >=105
+%                 if t >=50
 %                     keyboard
 %                 end
-                newroutepref=optimizeroute_multidto(dtorefvec,subflow,supplyfit,subactivenodes,...
+                newroutepref=optimizeroute_multidto(dtorefvec,subflow,supplyfit,expmax,...
                     subroutepref,dtoEdgeTable,dtoSLRISK,dtoADDVAL,dtoCTRANS,losstolval,dtoslsuc);
                 
                 routepref(dtorefvec,dtorefvec,t+1)=newroutepref;
