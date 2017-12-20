@@ -394,7 +394,8 @@ for erun=1:ERUNS
                 %                 ipotnode=subinodepick;
                 %             end
                 
-                randnode=idptmnt(ipotnode(randperm(length(ipotnode),1)));
+                randnode=idptmnt(ipotnode(randperm(length(ipotnode),...
+                    min(2,length(ipotnode)))));
                 
                 [nrow,ncol]=ind2sub(size(dptgrid),randnode);
                 [nlat,nlon]=pix2latlon(Rdptgrid,nrow,ncol);
@@ -681,6 +682,12 @@ for erun=1:ERUNS
             facmat(:,:,3)=RMTFAC;
             facmat(:,:,4)=DIST./max(max(DIST));
             SLPROB(:,:,TSTART)=mean(facmat,3);
+            
+%             facmat=LATFAC;
+%             facmat(:,:,2)=RMTFAC;
+%             facmat(:,:,3)=DIST./max(max(DIST));
+            
+            SLPROB(:,:,TSTART)=mean(facmat,3);
 %             SLPROB(:,:,TSTART)=max(min(max(facmat,[],3)+DIST./max(max(DIST)),1),0);   % dynamic probability of seisure and loss at edges
             SLPROB(:,:,TSTART+1)=SLPROB(:,:,TSTART);
         end
@@ -763,7 +770,7 @@ for erun=1:ERUNS
                     slquant=quantile(subslprob(subslprob~=0),[0.5 0.75 0.9]);
                     sleligible=find(subslprob > slquant(1));
                 else
-                    slquant=quantile(subslprob(subslprob~=0),[0.75 0.9 0.95]);
+                    slquant=quantile(subslprob(subslprob~=0),[0.5 0.75 0.9]);
                     sleligible=find(subslprob > slquant(2));
                 end
                 sleligible=sleligible(~ismember(sleligible,irevisit));

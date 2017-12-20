@@ -218,9 +218,13 @@ deptnames={'Pet','Dari','Ember','Puntarenas','Grac','Col','Atlantico Norte'};
 cntryind=zeros(length(CAattr1),length(deptnames));
 deptind=zeros(length(CAattr1),length(deptnames));
 hind=zeros(1,length(deptnames));
+chind=cell(1,length(deptnames));
 slctnodes=cell(1,length(deptnames));
+cslctnodes=cell(1,length(deptnames));
 deptflows=zeros(length(deptnames),TMAX);
 deptflows_ts=zeros(length(deptnames),TMAX/12);
+cntryflows=zeros(length(deptnames),TMAX);
+cntryflows_ts=zeros(length(deptnames),TMAX/12);
 deptslvol=zeros(length(deptnames),TMAX);
 deptslvol_ts=zeros(length(deptnames),TMAX/12);
 deptintrt=zeros(length(deptnames),TMAX);
@@ -232,9 +236,13 @@ for jj=1:length(cntrynames)
     deptind(ii,jj)=strncmp(deptnames(jj),CAattr1(ii).ADM1_NAME,length(deptnames{jj}));
     end
     hind(jj)=find(cntryind(:,jj) == 1 & deptind(:,jj) == 1);
+    chind(jj)=mat2cell(find(cntryind(:,jj) == 1),length(find(cntryind(:,jj) == 1)),1);
     nodeids=NodeTable.ID(NodeTable.DeptCode == CAattr1(hind(jj)).ADM1_CODE);
+    cnodeids=NodeTable.ID(ismember(NodeTable.DeptCode,cat(1,CAattr1(chind{jj}).ADM1_CODE)));
     slctnodes(jj)=mat2cell(nodeids,length(nodeids),1);
+    cslctnodes(jj)=mat2cell(cnodeids,length(cnodeids),1);
     deptflows(jj,:)=sum(OUTFLOW(slctnodes{jj},:),1);    %single run code
+    cntryflows(jj,:)=sum(OUTFLOW(cslctnodes{jj},:),1);
     test=reshape(sum(slsuccess,1),nnodes,TMAX); %single run code
     deptslvol(jj,:)=sum(test(slctnodes{jj},:),1);  %single run code
 %     deptflows(jj,:)=sum(mediandlvr(slctnodes{jj},:),1);
@@ -242,6 +250,7 @@ for jj=1:length(cntrynames)
     deptintrt(jj,:)=deptslvol(jj,:)./(deptslvol(jj,:)+deptflows(jj,:));
     for ts=1:TMAX/12
         deptflows_ts(jj,ts)=sum(deptflows(jj,tsind==ts));
+        cntryflows_ts(jj,ts)=sum(cntryflows(jj,tsind==ts));
         deptslvol_ts(jj,ts)=sum(deptslvol(jj,tsind==ts));
         deptintrt_ts(jj,:)=deptslvol_ts(jj,:)./(deptslvol_ts(jj,:)+deptflows_ts(jj,:));
     end
