@@ -1,12 +1,13 @@
 function [sl_max,sl_min,baserisk,riskmltplr,startstock,sl_learn,rt_learn,...
     losslim,prodgrow,targetseize,intcpctymodel,profitmodel,endstock,...
-    growthmdl,timewght,locthink]=load_expmntl_parms(ERUNS)
+    growthmdl,timewght,locthink,expandmax,empSLflag]=load_expmntl_parms(ERUNS)
     
-
+empSLflag=zeros(1,ERUNS);    %determines is empirical (1) or artificial (0) S&L schedule used
 
 sl_max=400*ones(1,ERUNS);       %baseline; maximum interdiction capacity
 % sl_max=[160 240 320 400 480];
 sl_min=ceil(sl_max/6);          %baseline; minimum interdiction capacity
+% sl_min=ceil(sl_max/2);
 
 baserisk=0.5*ones(1,ERUNS);     %baseline; threshold for risk premium, Caulkins et al. (1993)
 riskmltplr=2*ones(1,ERUNS);     %baseline; risk multiplier for risk premium, Caulkins et al. (1993)
@@ -15,7 +16,7 @@ riskmltplr=2*ones(1,ERUNS);     %baseline; risk multiplier for risk premium, Cau
 startstock=200*ones(1,ERUNS);       %baseline; stock at production node
 endstock=150000*ones(1,ERUNS);
 
-sl_learn=0.2*ones(1,ERUNS);     %baseline; rate of interdiction learning
+sl_learn=0.5*ones(1,ERUNS);     %baseline; rate of interdiction learning
 rt_learn=0.5*ones(1,ERUNS);     %baseline; rate of network agent learning
 
 losslim=0.1*ones(1,ERUNS);      %baseline; loss tolerance
@@ -32,4 +33,6 @@ targetseize=0.3*ones(1,ERUNS);  %baseline; target portion of total flow to seize
 intcpctymodel=ones(1,ERUNS);    %decreaseing(1) or increasing(2) capacity response to missing target seizures 
 
 profitmodel=ones(1,ERUNS);    %profit maximization model for node selection: 1 is standard, 2 is cumulative
+
+expandmax=10*ones(1,ERUNS);     %number of new nodes established per month
 

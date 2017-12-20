@@ -50,7 +50,7 @@ if supplyfit <= losstolval  %need to consolidate supply chain
                 find(edgesort(edgecut,4)==edgesort(iprimary(ikeep_primary),5))]));
         end
     end
-    
+    edgecut=find(dtoADDVAL(edgesort(edgecut,3))-dtoCTRANS(edgesort(edgecut,3)) <= 0);   %only discard nodes losing money
     % remove highest risk edges
     for j=1:length(edgecut)
        icheckroute=find(subflow(edgesort(edgecut(j),4),...
@@ -90,12 +90,13 @@ if supplyfit <= losstolval  %need to consolidate supply chain
 elseif supplyfit > losstolval    %need to expand supply chain
 %     potnodes=allnodes(~ismember(allnodes,subactivenodes));
     potnodes=dtorefvec(~ismember(dtorefvec,[1; dtorefvec(unique(edgeparms(:,4:5)))]));
-%     potnodes=dtorefvec(~ismember(dtorefvec,[1; subactivenodes; ...
-%         dtorefvec(length(dtorefvec))]));
-    edgeadd=1:min(max(ceil(length(subactivenodes)*(1+(supplyfit-losstolval)/...
-        supplyfit)),1),length(potnodes));
 %     edgeadd=1:min(max(ceil((supplyfit-losstolval)/supplyfit),1),length(potnodes));
-
+%     edgeadd=1:min(max(ceil(supplyfit/...
+%         (sum(dtoADDVAL(iactiveedges)- dtoCTRANS(iactiveedges))*...
+%         sum(sum(subflow)))),1),10);
+    edgeadd=1:min(max(ceil(supplyfit/losstolval),1),min(10,length(potnodes)));
+    
+    
     if isempty(find(potnodes,1)) == 1
 %         display('No more nodes to expand')
 %         subroutepref(iactiveedges)=1-SLRISK(iactiveedges);

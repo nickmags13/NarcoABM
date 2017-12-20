@@ -206,6 +206,7 @@ for n=2:nnodes-1
         [1-t_firstmov(n)/max(t_firstmov) t_firstmov(n)/max(t_firstmov) 0])
     end
 end
+%red is early, green is late
 title('First Time Step of Cocaine Movements')
 xlabel('Longitude')
 ylabel('Latitude')

@@ -34,7 +34,19 @@ for erun=1:ERUNS
         % load experimental parameters file
         [sl_max,sl_min,baserisk,riskmltplr,startstock,sl_learn,rt_learn,...
             losslim,prodgrow,targetseize,intcpctymodel,profitmodel,endstock,...
-            growthmdl,timewght,locthink]=load_expmntl_parms(ERUNS);
+            growthmdl,timewght,locthink,expandmax,empSLflag]=load_expmntl_parms(ERUNS);
+        
+        ccdb = [1	0	1	1	1	0	0	1	1	1	0	0	0	0   0
+                0	0	3	1	1	0	0	1	0	0	0	1	0	1   0
+                1	0	0	0	0	0	0	0	0	0	0	0	0	0   0
+                0	0	0	0	0	0	1	1	6	3	7	4	3	2   0
+                0	0	1	0	2	0	0	3	1	3	4	4	1	0   0
+                0	0	0	0	0	0	0	0	1	0	0	0	0	0   0
+                0	0	0	0	0	0	0	0	0	0	1	1	0	0   0
+                0	0	1	1	2	0	0	4	3	3	1	2	0	0   0
+                0	0	2	0	5	0	0	2	1	1	2	1	0	1   0]; 
+        %CCDB interdictions, in same order as country and dept names in
+        %'build_SLemp.m'
         
         %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         %@@@@@@@@ Environment @@@@@@@@@
@@ -329,7 +341,7 @@ for erun=1:ERUNS
         timewght_0=timewght(erun);
 %         slprob_0=alpharisk/(1+alpharisk+betarisk);     % baseline probability of seisure and loss event
         slprob_0=1/(sum(timewght_0.^(0:12))+betarisk);
-        nodepct=0.0001; %percentage of high suitability cells that contain possible nodes
+        nodepct=0.00005; %percentage of high suitability cells that contain possible nodes
         % cntrycpcty=[0.1 0.1 0.1 0.1 0.1 0.1 0.1];   %country-specific, per node trafficking capacity
         bribepct=0.3;       % Annual proportion of gross profits from drug trafficking that go towards securing node territory
         bribethresh=12;      % Maximum number of months a node can o without bribes to maintain control
@@ -357,90 +369,91 @@ for erun=1:ERUNS
         nodelsuit=0;
         nodedto=0;
         nodequant=quantile(LANDSUIT(~isnan(LANDSUIT)),[0.025 0.50 0.66 0.75 0.99]);
-        inodepick=find(LANDSUIT > nodequant(4));
+        inodepick=find(LANDSUIT > nodequant(3));
         avgnodealloc=ceil((length(inodepick)*nodepct)/length(dptcodes));
         pctdptsuit=zeros(length(dptorder(:,1)),1);
         for dc=1:length(pctdptsuit)
             dptsuit=LANDSUIT(dptgrid == dptorder(dc,1));
-            pctdptsuit(dc)=length(find(dptsuit > nodequant(4)))/length(dptsuit);
+            pctdptsuit(dc)=length(find(dptsuit > nodequant(3)))/length(dptsuit);
         end
-        % for i=1:length(cntrycodes)
         for i=1:length(dptorder)
-            %     icntry=find(ca_adm0 == nodeorder(i));
-            %     ipotnode=find(ismember(icntry,inodepick)==1);   %place nodes based on LANDSUIT
-            idptmnt=find(dptgrid == dptorder(i,1));
-            ipotnode=find(ismember(idptmnt,inodepick)==1);
-            % allocate nodes per department based on suitability within department
-            allocnodes=round(avgnodealloc*pctdptsuit(i)./median(pctdptsuit(pctdptsuit~=0)));
-            if isempty(find(ipotnode,1)) == 1
-                subinodepick=find(LANDSUIT(idptmnt) > nodequant(2));
-                if isempty(find(subinodepick,1)) == 1
-                    continue
+            if pctdptsuit(i)==0
+                continue
+            else
+                %place nodes based on LANDSUIT
+                idptmnt=find(dptgrid == dptorder(i,1));
+                ipotnode=find(ismember(idptmnt,inodepick)==1);
+                % allocate nodes per department based on suitability within department
+                %             allocnodes=round(avgnodealloc*pctdptsuit(i)./median(pctdptsuit(pctdptsuit~=0)));
+                %             if isempty(find(ipotnode,1)) == 1
+                %                 subinodepick=find(LANDSUIT(idptmnt) > nodequant(2));
+                %                 if isempty(find(subinodepick,1)) == 1
+                %                     continue
+                %                 end
+                %                 %         ipotnode=find(ismember(idptmnt,subinodepick)==1);
+                %                 ipotnode=subinodepick;
+                %             end
+                
+                randnode=idptmnt(ipotnode(randperm(length(ipotnode),1)));
+                
+                [nrow,ncol]=ind2sub(size(dptgrid),randnode);
+                [nlat,nlon]=pix2latlon(Rdptgrid,nrow,ncol);
+                nodeid=[nodeid length(nodeid)+(1:length(randnode))];
+                noderow=[noderow; nrow];
+                nodecol=[nodecol; ncol];
+                nodelat=[nodelat; nlat];
+                nodelon=[nodelon; nlon];
+                nodecode=[nodecode; dptorder(i,1)*ones(length(randnode),1)];
+                nodestck=[nodestck; zeros(length(randnode),1)];
+                nodecptl=[nodecptl; zeros(length(randnode),1)];
+                nodetcov=[nodetcov; treecov(randnode)];
+                nodepopsuit=[nodepopsuit; pop_suit(randnode)];
+                nodedcsuit=[nodedcsuit; dcoast_suit(randnode)];
+                nodedbsuit=[nodedbsuit; dbrdr_suit(randnode)];
+                nodeslpsuit=[nodeslpsuit; slp_suit(randnode)];
+                nodemktsuit=[nodemktsuit; mktacc_suit(randnode)];
+                nodelusuit=[nodelusuit; lu_suit(randnode)];
+                nodelsuit=[nodelsuit; LANDSUIT(randnode)];
+                nodedto=[nodedto; zeros(length(randnode),1)];
+                if i == 1
+                    snode=ones(length(randnode),1);
+                    tnode=(1+(1:length(randnode)))';
+                    weights=ones(length(randnode),1);
+                    flows=ones(length(randnode),1);
+                    %                 cpcty=2*stock_0*ones(length(randnode),1); %currently all the same capacity, but could introduce heterogeneity
+                    cpcty=1000000*ones(length(randnode),1);
+                    EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
+                        {'EndNodes' 'Weight' 'Flows' 'Capacity'});
                 end
-                %         ipotnode=find(ismember(idptmnt,subinodepick)==1);
-                ipotnode=subinodepick;
-            end
-            
-            randnode=idptmnt(ipotnode(randperm(max(length(ipotnode),...
-                length(ipotnode)),allocnodes)));
-            
-            [nrow,ncol]=ind2sub(size(dptgrid),randnode);
-            [nlat,nlon]=pix2latlon(Rdptgrid,nrow,ncol);
-            nodeid=[nodeid length(nodeid)+(1:length(randnode))];
-            noderow=[noderow; nrow];
-            nodecol=[nodecol; ncol];
-            nodelat=[nodelat; nlat];
-            nodelon=[nodelon; nlon];
-            nodecode=[nodecode; dptorder(i,1)*ones(length(randnode),1)];
-            nodestck=[nodestck; zeros(length(randnode),1)];
-            nodecptl=[nodecptl; zeros(length(randnode),1)];
-            nodetcov=[nodetcov; treecov(randnode)];
-            nodepopsuit=[nodepopsuit; pop_suit(randnode)];
-            nodedcsuit=[nodedcsuit; dcoast_suit(randnode)];
-            nodedbsuit=[nodedbsuit; dbrdr_suit(randnode)];
-            nodeslpsuit=[nodeslpsuit; slp_suit(randnode)];
-            nodemktsuit=[nodemktsuit; mktacc_suit(randnode)];
-            nodelusuit=[nodelusuit; lu_suit(randnode)];
-            nodelsuit=[nodelsuit; LANDSUIT(randnode)];
-            nodedto=[nodedto; zeros(length(randnode),1)];
-            if i == 1
-                snode=ones(length(randnode),1);
-                tnode=(1+(1:length(randnode)))';
-                weights=ones(length(randnode),1);
-                flows=ones(length(randnode),1);
-%                 cpcty=2*stock_0*ones(length(randnode),1); %currently all the same capacity, but could introduce heterogeneity
-                cpcty=1000000*ones(length(randnode),1);
-                EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
-                    {'EndNodes' 'Weight' 'Flows' 'Capacity'});
-            end
-            if i == length(dptcodes)
-                ineicode=ismember(nodecode,unique(dptgrid(ca_adm0 == 23 | ca_adm0 ==94)));
-                snode=nodeid(ineicode)';
-                tnode=(length(nodeid)+1)*ones(length(snode),1);
-                nodeid=[nodeid max(nodeid)+1];  %add end node
-                noderow=[noderow; edrow];
-                nodecol=[nodecol; edcol];
-                nodelat=[nodelat; pend.Latitude];
-                nodelon=[nodelon; pend.Longitude];
-                nodecode=[nodecode; 2];
-                nodestck=[nodestck; 0];
-                nodecptl=[nodecptl; 0];
-                nodetcov=[nodetcov; 0];
-                nodepopsuit=[nodepopsuit; 0];
-                nodedcsuit=[nodedcsuit; 0];
-                nodedbsuit=[nodedbsuit; 0];
-                nodeslpsuit=[nodeslpsuit; 0];
-                nodemktsuit=[nodemktsuit; 0];
-                nodelusuit=[nodelusuit; 0];
-                nodelsuit=[nodelsuit; 0];
-                nodedto=[nodedto; 0];
-                weights=ones(length(snode),1);
-                flows=ones(length(snode),1);
-%                 cpcty=2*stock_0*ones(length(snode),1);
-                cpcty=1000000*ones(length(snode),1);
-                EdgeTable=table([EdgeTable.EndNodes; snode tnode],[EdgeTable.Weight; ...
-                    weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
-                    'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
+                if i == length(dptcodes)
+                    ineicode=ismember(nodecode,unique(dptgrid(ca_adm0 == 23 | ca_adm0 ==94)));
+                    snode=nodeid(ineicode)';
+                    tnode=(length(nodeid)+1)*ones(length(snode),1);
+                    nodeid=[nodeid max(nodeid)+1];  %add end node
+                    noderow=[noderow; edrow];
+                    nodecol=[nodecol; edcol];
+                    nodelat=[nodelat; pend.Latitude];
+                    nodelon=[nodelon; pend.Longitude];
+                    nodecode=[nodecode; 2];
+                    nodestck=[nodestck; 0];
+                    nodecptl=[nodecptl; 0];
+                    nodetcov=[nodetcov; 0];
+                    nodepopsuit=[nodepopsuit; 0];
+                    nodedcsuit=[nodedcsuit; 0];
+                    nodedbsuit=[nodedbsuit; 0];
+                    nodeslpsuit=[nodeslpsuit; 0];
+                    nodemktsuit=[nodemktsuit; 0];
+                    nodelusuit=[nodelusuit; 0];
+                    nodelsuit=[nodelsuit; 0];
+                    nodedto=[nodedto; 0];
+                    weights=ones(length(snode),1);
+                    flows=ones(length(snode),1);
+                    %                 cpcty=2*stock_0*ones(length(snode),1);
+                    cpcty=1000000*ones(length(snode),1);
+                    EdgeTable=table([EdgeTable.EndNodes; snode tnode],[EdgeTable.Weight; ...
+                        weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
+                        'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
+                end
             end
         end
         NodeTable=table(nodeid',noderow,nodecol,nodelat,nodelon,nodecode,nodestck,...
@@ -466,14 +479,6 @@ for erun=1:ERUNS
         LATFAC=zeros(nnodes);   % decreased likelihood of S&L moving north to reflect greater DTO investment
         
         NEIHOOD=cell(nnodes,2);
-        
-        routepref=zeros(nnodes,nnodes,TMAX);   % weighting by network agent of successful routes
-        slevent=zeros(nnodes,nnodes,TMAX);  % occurrence of S&L event
-        slsuccess=zeros(nnodes,nnodes,TMAX);    % volume of cocaine seized in S&L events
-        slvalue=zeros(nnodes,nnodes,TMAX);    % value of cocaine seized in S&L events
-        SLPROB=zeros(nnodes,nnodes,TMAX);   % dynamic probability of S&L event per edge
-        intrdevent=zeros(nnodes,TMAX);
-        INTRDPROB=zeros(nnodes,TMAX);
         
         STOCK=zeros(nnodes,TMAX);       %dynamic cocaine stock at each node
         PRICE=zeros(nnodes,TMAX);       % $/kilo at each node
@@ -658,14 +663,28 @@ for erun=1:ERUNS
         end
         
         %%% Initialize Interdiction agent
-        facmat=LATFAC;
-        facmat(:,:,2)=COASTFAC;
-        facmat(:,:,3)=RMTFAC;
-        % SLPROB(:,:,TSTART)=max(min((COASTFAC./max(max(COASTFAC))).*...
-        %     (RMTFAC./max(max(RMTFAC))).*(DIST./max(max(DIST))),1),0);
-        SLPROB(:,:,TSTART)=max(min(max(facmat,[],3)+DIST./max(max(DIST)),1),0);   % dynamic probability of seisure and loss at edges
+        % Create S&L probability layer
+        routepref=zeros(nnodes,nnodes,TMAX);   % weighting by network agent of successful routes
+        slevent=zeros(nnodes,nnodes,TMAX);  % occurrence of S&L event
+        slsuccess=zeros(nnodes,nnodes,TMAX);    % volume of cocaine seized in S&L events
+        slvalue=zeros(nnodes,nnodes,TMAX);    % value of cocaine seized in S&L events
+        intrdevent=zeros(nnodes,TMAX);
+        INTRDPROB=zeros(nnodes,TMAX);
+        SLPROB=zeros(nnodes,nnodes,TMAX);   % dynamic probability of S&L event per edge
+        
+        if empSLflag(erun) == 1
+            [empSLPROB,slctnodes] = build_SLemp(nnodes,TMAX,CAattr1,NodeTable,ADJ,ccdb);
+            SLPROB=empSLPROB;
+        else
+            facmat=LATFAC;
+            facmat(:,:,2)=COASTFAC;
+            facmat(:,:,3)=RMTFAC;
+            facmat(:,:,4)=DIST./max(max(DIST));
+            SLPROB(:,:,TSTART)=mean(facmat,3);
+%             SLPROB(:,:,TSTART)=max(min(max(facmat,[],3)+DIST./max(max(DIST)),1),0);   % dynamic probability of seisure and loss at edges
+            SLPROB(:,:,TSTART+1)=SLPROB(:,:,TSTART);
+        end
         slmin=SLPROB(:,:,TSTART);
-        SLPROB(:,:,TSTART+1)=SLPROB(:,:,TSTART);
         INTRDPROB(:,TSTART+1)=slprob_0*ones(nnodes,1); % dynamic probability of interdiction at nodes
         
         %%% Initialize Node agents
@@ -717,35 +736,41 @@ for erun=1:ERUNS
             %     slevent(:,:,t)=(SLPROB(:,:,t) > rndslevents);
             %%% Specified number of events, selection of highest probability nodes (in addition to p=1)
             %     newslevents=ceil(slcpcty(t)*rand(1));
+            islevent=[];
             subslevent=slevent(:,:,t);
             subsuccess=slsuccess(:,:,t-1);
-            subslprob=reshape(SLPROB(:,:,t),nnodes*nnodes,1);
+            subadj=zeros(size(ADJ));
             irevisit=find(slsuccess(:,:,t-1) > 0);
             sl_vol=sortrows([irevisit subsuccess(irevisit)],-2);
             irevisit=sl_vol(1:min(slcpcty(t),length(irevisit)),1);
-            %     irevisit=irevisit(randperm(length(irevisit),min(slcpcty(t),...
-            %         length(irevisit))));
-            %     subslprob=subslprob(subslprob~=1);
-            if isempty(find(irevisit,1)) == 1 && ...
-                    sum(sum(sum(slsuccess(:,:,TSTART+1:t-1))),3) > 0
-                slquant=quantile(subslprob(subslprob~=0),[0.5 0.75 0.9]);
-                sleligible=find(subslprob > slquant(1));
+            if empSLflag(erun) == 1
+                subslprob=SLPROB(:,:,t);
+                iempsl=find(ccdb(:,ceil(t/12)) > 0);
+                SLsplit=ccdb(iempsl,ceil(t/12))./sum(ccdb(iempsl,ceil(t/12)));
+                for gg=1:length(iempsl)
+                    subadj(slctnodes{iempsl(gg)},:)=subslprob(slctnodes{iempsl(gg)},:);
+                    subadj(:,slctnodes{iempsl(gg)})=subslprob(:,slctnodes{iempsl(gg)});
+                    itrgt=find(subadj==1);
+%                     islevent=[islevent; itrgt(randperm(length(itrgt),...
+%                         min(round(slcpcty(t)*SLsplit(gg)),length(itrgt))))];
+                    islevent=[islevent; itrgt];
+                end
+                islevent=[islevent; irevisit(~ismember(irevisit,islevent))];
             else
-                slquant=quantile(subslprob(subslprob~=0),[0.5 0.75 0.9]);
-                sleligible=find(subslprob > slquant(2));
+                subslprob=reshape(SLPROB(:,:,t),nnodes*nnodes,1);
+                if isempty(find(irevisit,1)) == 1 && ...
+                        sum(sum(sum(slsuccess(:,:,TSTART+1:t-1))),3) > 0
+                    slquant=quantile(subslprob(subslprob~=0),[0.5 0.75 0.9]);
+                    sleligible=find(subslprob > slquant(1));
+                else
+                    slquant=quantile(subslprob(subslprob~=0),[0.75 0.9 0.95]);
+                    sleligible=find(subslprob > slquant(2));
+                end
+                sleligible=sleligible(~ismember(sleligible,irevisit));
+                islevent=[irevisit; sleligible(randperm(length(sleligible),...
+                    min(max(slcpcty(t)-length(irevisit),0),length(sleligible))))];
             end
-            sleligible=sleligible(~ismember(sleligible,irevisit));
-            islevent=[irevisit; sleligible(randperm(length(sleligible),...
-                min(max(slcpcty(t)-length(irevisit),0),length(sleligible))))];
             
-            %     [subslprobsort,isubslprobsort]=sort(subslprob,'descend');
-            %     islevent=isubslprobsort(1:length(find(subslprob==1))+slcpcty(t));
-            %     if length(find(subslprob==1)) >= slcpcty(t)
-            %         islevent=isubslprobsort(randperm(length(find(subslprob==1)),...
-            %             slcpcty(t)));
-            %     else
-            %         islevent=isubslprobsort(1:slcpcty(t));
-            %     end
             subslevent(islevent)=1;
             slevent(:,:,t)=subslevent;
             %     slevent(:,:,t)=(SLPROB(:,:,t) == 1);
@@ -988,16 +1013,18 @@ for erun=1:ERUNS
             CTRANS(:,:,t+1)=CTRANS(:,:,t).*RISKPREM(:,:,t);
             
             totslrisk(t+1)=mean(cat(2,avgslrisk{:,t}));
-            %%% Updating interdiction event probability
-            subslsuc=slsuccess(:,:,t);
-            subslval=slvalue(:,:,t);
-            subslprob=SLPROB(:,:,t);
-            islcheck=(slevent(:,:,t) == 1);
-            subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
-                (subslsuc(islcheck) > 0),slmin(islcheck));
-            %     subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
-            %         (subslval(islcheck) > 0),slmin(islcheck));
-            SLPROB(:,:,t+1)=subslprob;
+            if empSLflag == 0
+                %%% Updating interdiction event probability
+                subslsuc=slsuccess(:,:,t);
+                subslval=slvalue(:,:,t);
+                subslprob=SLPROB(:,:,t);
+                islcheck=(slevent(:,:,t) == 1);
+                subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
+                    (subslsuc(islcheck) > 0),slmin(islcheck));
+                %     subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
+                %         (subslval(islcheck) > 0),slmin(islcheck));
+                SLPROB(:,:,t+1)=subslprob;
+            end
             %%% Interdiction capacity
             if intcpctymodel(erun) == 1   %decreasing capacity when target missed (postive feedback)
 %                 if t <= 24
@@ -1077,15 +1104,17 @@ for erun=1:ERUNS
 %                 losstolval=losstol*sum(subflow(1,:)+dtoslsuc(1,:))*PRICE(nnodes,t);
                 losstolval=losstol*sum(subflow(subflow > 0).*((PRICE(dtorefvec(icol),t)-...
                     PRICE(dtorefvec(irow),t))-dtoCTRANS(subflow > 0)));
-                if supplyfit < 0 
-                    keyboard
-                end
+
                 if isempty(find(supplyfit ~= 0,1)) == 1 && isempty(find(losstolval ~= 0,1)) == 1
                     supplyfit=0.1;
                 end
+                expmax=expandmax(erun);
                 %call top-down route optimization
                 %     newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
                 %         subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstolval);
+%                 if t >=105
+%                     keyboard
+%                 end
                 newroutepref=optimizeroute_multidto(dtorefvec,subflow,supplyfit,subactivenodes,...
                     subroutepref,dtoEdgeTable,dtoSLRISK,dtoADDVAL,dtoCTRANS,losstolval,dtoslsuc);
                 
