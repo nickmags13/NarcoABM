@@ -4,7 +4,7 @@ MRUNS=1;
 ERUNS=1;
 
 rng default
-
+% load saverndstate.mat
 % poolobj=parpool(10);
 % addAttachedFiles(poolobj,{'calc_neival.m','optimizeroute_multidto.m',...
 %     'calc_intrisk.m','load_expmntl_parms.m','parsave_illicit_supplychain.m'});
@@ -271,15 +271,15 @@ for erun=1:ERUNS
         invst_suit(luint == 4)=1;
         
         %%% Weight each landscape attribute
-        tcwght=1;       % tree cover
-        brdwght=1;      % distance to country border
-        dcstwght=0;     % distance to coast
-        mktwght=1;      % market access
-        popwght=1;      % population density - proxy for remoteness
-        slpwght=1;      % slope-constrained land suitability
-        luwght=0;       % suitability based on initial land use
-        invstwght=0;    % investment potential of initial land use
-        protwght=1;
+        tcwght=1;       % tree cover (narco = 1)
+        brdwght=1;      % distance to country border (narco = 1)
+        dcstwght=0;     % distance to coast (always 0)
+        mktwght=1;      % market access (always 1)
+        popwght=1;      % population density - proxy for remoteness (narco = 1)
+        slpwght=1;      % slope-constrained land suitability (always 1)
+        luwght=0;       % suitability based on initial land use (narco = 0)
+        invstwght=0;    % investment potential of initial land use (always 0)
+        protwght=1;     % protected area status (always 1)
         
         % LANDSUIT=tcwght.*treecov./100+brdwght.*dbrdr_suit+dcstwght.*dcoast_suit+...
         %     mktwght.*(1-mktacc_suit)+popwght.*pop_suit+slpwght.*slp_suit+luwght.*...
@@ -288,10 +288,10 @@ for erun=1:ERUNS
         wghts=[tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]./...
             sum([tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]);
         
-        % %%% Null Model
-        % LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
-        %     wghts(4).*mktacc_suit+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
-        %     lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
+%         %%% Null Model
+%         LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
+%             wghts(4).*mktacc_suit+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
+%             lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
         
         % %%% Full model
         LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
@@ -335,7 +335,7 @@ for erun=1:ERUNS
         
         %%% Nodes agents %%%
         % perceived risk model
-        alpharisk=2;  %baseline is 0.001
+        alpharisk=2;
         % betarisk=alpharisk/slprob_0-alpharisk;
         betarisk=0.5;
         timewght_0=timewght(erun);
@@ -344,7 +344,7 @@ for erun=1:ERUNS
         nodepct=0.00005; %percentage of high suitability cells that contain possible nodes
         % cntrycpcty=[0.1 0.1 0.1 0.1 0.1 0.1 0.1];   %country-specific, per node trafficking capacity
         bribepct=0.3;       % Annual proportion of gross profits from drug trafficking that go towards securing node territory
-        bribethresh=12;      % Maximum number of months a node can o without bribes to maintain control
+        bribethresh=12;      % Maximum number of months a node can go without bribes to maintain control
         rentcap=1-bribepct;     % proportion of value of shipments 'captured' by nodes
         %%%%%%%%%%%%%  Set-up Trafficking Network  %%%%%%%%%%%%%%%%%%
         % G=digraph;
@@ -368,6 +368,17 @@ for erun=1:ERUNS
         nodelusuit=0;
         nodelsuit=0;
         nodedto=0;
+        % Create empty table
+        snode=ones([],1);
+        tnode=[];
+        weights=ones([],1);
+        flows=ones([],1);
+        %                 cpcty=2*stock_0*ones(length(randnode),1); %currently all the same capacity, but could introduce heterogeneity
+        cpcty=[];
+        EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
+            {'EndNodes' 'Weight' 'Flows' 'Capacity'});
+%         savedState=rng;
+        % Allocate nodes based on suitability
         nodequant=quantile(LANDSUIT(~isnan(LANDSUIT)),[0.025 0.50 0.66 0.75 0.99]);
         inodepick=find(LANDSUIT > nodequant(3));
         avgnodealloc=ceil((length(inodepick)*nodepct)/length(dptcodes));
@@ -423,8 +434,11 @@ for erun=1:ERUNS
                     flows=ones(length(randnode),1);
                     %                 cpcty=2*stock_0*ones(length(randnode),1); %currently all the same capacity, but could introduce heterogeneity
                     cpcty=1000000*ones(length(randnode),1);
-                    EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
-                        {'EndNodes' 'Weight' 'Flows' 'Capacity'});
+%                     EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
+%                         {'EndNodes' 'Weight' 'Flows' 'Capacity'});
+                    EdgeTable=table([EdgeTable.EndNodes; snode tnode],[EdgeTable.Weight; ...
+                        weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
+                        'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
                 end
                 if i == length(dptcodes)
                     ineicode=ismember(nodecode,unique(dptgrid(ca_adm0 == 23 | ca_adm0 ==94)));
@@ -498,6 +512,9 @@ for erun=1:ERUNS
         avgslrisk=cell(nnodes,TMAX);    % average S&L risk at each node given active routes
         totslrisk=zeros(1,TMAX);        % network-wide average S&L risk
         slcpcty=zeros(1,TMAX);
+        
+%         rng(86);
+        
         for k=1:nnodes-1
             if k == 1
                 newedges=2:nnodes;
@@ -531,6 +548,10 @@ for erun=1:ERUNS
                 ADJ(k,EdgeTable.EndNodes(EdgeTable.EndNodes(:,1)==k,2))=1;
             end
         end
+        
+%         rng(savedState)
+%         savedState=rng;
+        
         % Make sure all nodes connect to end node
         iendnode=NodeTable.ID(NodeTable.DeptCode == 2);
         newedges=1:nnodes-1;
@@ -1123,7 +1144,7 @@ for erun=1:ERUNS
                 %call top-down route optimization
                 %     newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
                 %         subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstolval);
-%                 if t >=50
+%                 if t >=50 && supplyfit > 0 && supplyfit <= losstolval
 %                     keyboard
 %                 end
                 newroutepref=optimizeroute_multidto(dtorefvec,subflow,supplyfit,expmax,...
@@ -1226,12 +1247,12 @@ for erun=1:ERUNS
         end
         t_firstmov(nnodes)=find(STOCK(nnodes,:)>0,1,'first');
         
-        savefname=sprintf('supplychain_results_103017_%d_%d',erun,mrun);
-        parsave_illicit_supplychain(savefname,EdgeTable,NodeTable,MOV,FLOW,OUTFLOW,...
-            TOTCPTL,DTOBDGT,slsuccess,activeroute,STOCK,slperevent,...
-            nactnodes,sltot,t_firstmov);
+%         savefname=sprintf('supplychain_results_122717_%d_%d',erun,mrun);
+%         parsave_illicit_supplychain(savefname,EdgeTable,NodeTable,MOV,FLOW,OUTFLOW,...
+%             TOTCPTL,DTOBDGT,slsuccess,activeroute,STOCK,slperevent,slval,...
+%             nactnodes,sltot,t_firstmov);
         
     end
 end
 toc
-delete(poolobj)
+% delete(poolobj)

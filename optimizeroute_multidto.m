@@ -10,9 +10,9 @@ iactiveedges=find(subflow > 0 | dtoslsuc > 0);
 edgeparms=[subflow(iactiveedges) dtoSLRISK(iactiveedges) iactiveedges actrow actcol];
 if supplyfit <= losstolval  %need to consolidate supply chain
     edgesort=sortrows(edgeparms,-2); %refernce this array when removing edges
-    %    edgecut=1:min(length(iactiveedges)-ceil(length(iactiveedges)*...
-    %        ((losstolval-supplyfit)/losstolval)),length(iactiveedges)-1);   %calc how many edges need to be removed
     iprimary=find(edgesort(:,4) == 1 & edgesort(:,5) ~= length(dtorefvec));   %primary movement
+%     edgecut=1:min(round(length(iactiveedges)*(1-(supplyfit/...
+%         (supplyfit+losstolval)))),length(iactiveedges)-1);       %calc how many edges need to be removed
     edgecut=1:min(round(length(iactiveedges)*(supplyfit/...
         (supplyfit+losstolval))),length(iactiveedges)-1);
     %    iedgecut=edgecut(edgesort(edgecut,2)> min(edgeparms(:,2)));
@@ -50,7 +50,7 @@ if supplyfit <= losstolval  %need to consolidate supply chain
                 find(edgesort(edgecut,4)==edgesort(iprimary(ikeep_primary),5))]));
         end
     end
-    edgecut=find(dtoADDVAL(edgesort(edgecut,3))-dtoCTRANS(edgesort(edgecut,3)) <= 0);   %only discard nodes losing money
+%     edgecut=find(dtoADDVAL(edgesort(edgecut,3))-dtoCTRANS(edgesort(edgecut,3)) <= 0);   %only discard nodes losing money
     % remove highest risk edges
     for j=1:length(edgecut)
        icheckroute=find(subflow(edgesort(edgecut(j),4),...
