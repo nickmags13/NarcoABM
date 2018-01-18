@@ -16,13 +16,13 @@ evalset=zeros(POP,7,GEN);
 
 rng default
 % Parameter set
-parmset(:,1,1)=round(100+(200-100)*rand(POP,1)); %maximum capacity
+parmset(:,1,1)=round(100+(400-100)*rand(POP,1)); %maximum capacity
 parmset(:,2,1)=0.3+(0.75-0.3)*rand(POP,1);   %baserisk
-parmset(:,3,1)=0.25+(0.55-0.25)*rand(POP,1);   %sl_learn
-parmset(:,4,1)=0.1+(0.75-0.1)*rand(POP,1);   %rt_learn
-parmset(:,5,1)=0.01+(0.05-0.01)*rand(POP,1); %losslim
-parmset(:,6,1)=0.1+(0.25-0.1)*rand(POP,1);   %targetseize
-parmset(:,7,1)=round(8+(16-1)*rand(POP,1));  %expandmax
+parmset(:,3,1)=0.25+(0.75-0.25)*rand(POP,1);   %sl_learn
+parmset(:,4,1)=0.25+(0.75-0.25)*rand(POP,1);   %rt_learn
+parmset(:,5,1)=0.01+(0.2-0.01)*rand(POP,1); %losslim
+parmset(:,6,1)=0.1+(0.5-0.1)*rand(POP,1);   %targetseize
+parmset(:,7,1)=round(8+(25-8)*rand(POP,1));  %expandmax
 
 pset=(1:PARMS);
 
@@ -40,7 +40,7 @@ deptpval=zeros(POP,6,GEN);
 % addAttachedFiles(poolobj,{'calc_neival.m','optimizeroute_multidto.m',...
 %     'calc_intrisk.m','load_expmntl_parms_ga.m','Master_supplychain_genalgo.m',...
 %     'run_master_file.m'});
-parmfname=sprintf('%sparmsfile_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_011218_ga\',1);
+parmfname=sprintf('%sparmsfile_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_011718_ga\',1);
 g_id=1;
 save(parmfname,'g_id','parmset');
 
@@ -56,13 +56,14 @@ for g=1:GEN
     
     %Fitness evaluation
     evalset(:,:,g)=([tmovpval(:,g) deptpval(:,:,g)] < 0.1); %p-value based
-    %     evalset(:,:,g)=[tmovcorr(:,g) deptcorr(:,:,g)];     %correlation coefficient based
+%     evalset(:,:,g)=[tmovcorr(:,g) deptcorr(:,:,g)];     %correlation coefficient based
     outcomeset(:,:,g)=[tmovpval(:,g) deptpval(:,:,g)];
-    %     outcomeset(:,:,g)=[tmovcorr(:,g) deptcorr(:,:,g)];
+%     outcomeset(:,:,g)=[tmovcorr(:,g) deptcorr(:,:,g)];
     
     fitness(:,:,g)=[sum(evalset(:,:,g),2) (1:POP)'];
     sortfit=sortrows(fitness(:,:,g),-1);
     fitcut=round(POP*0.1667);
+%     fitcut=length(find(fitness(:,1,g) >= max(reshape(fitness(:,1,:),POP*GEN,1))));
 
     fitset=(1:fitcut);
     bestset=parmset(sortfit(1:fitcut,2),:,g);
@@ -97,28 +98,29 @@ for g=1:GEN
     end
 
     % New, random generation
-    parmset(11:POP,1,g+1)=round(100+(200-100)*rand(20,1));
+    parmset(11:POP,1,g+1)=round(100+(400-100)*rand(20,1));
     parmset(11:POP,2,g+1)=0.3+(0.75-0.3)*rand(20,1);
-    parmset(11:POP,3,g+1)=0.25+(0.55-0.25)*rand(20,1);
-    parmset(11:POP,4,g+1)=0.1+(0.75-0.1)*rand(20,1);
-    parmset(11:POP,5,g+1)=0.01+(0.05-0.01)*rand(20,1);
-    parmset(11:POP,6,g+1)=0.1+(0.25-0.1)*rand(20,1);
-    parmset(11:POP,7,g+1)=round(8+(16-8)*rand(20,1));
+    parmset(11:POP,3,g+1)=0.25+(0.75-0.25)*rand(20,1);
+    parmset(11:POP,4,g+1)=0.25+(0.75-0.25)*rand(20,1);
+    parmset(11:POP,5,g+1)=0.01+(0.2-0.01)*rand(20,1);
+    parmset(11:POP,6,g+1)=0.1+(0.5-0.1)*rand(20,1);
+    parmset(11:POP,7,g+1)=round(8+(25-8)*rand(20,1));
     
-    parmset(:,:,g+1)=[max(min(parmset(:,1,g+1),200),100) ...
+    parmset(:,:,g+1)=[max(min(parmset(:,1,g+1),400),100) ...
         max(min(parmset(:,2,g+1),0.75),0.3) ...
-        max(min(parmset(:,3,g+1),0.55),0.25) ...
-        max(min(parmset(:,4,g+1),0.75),0.1) ...
-        max(min(parmset(:,5,g+1),0.05),0.01) ...
-        max(min(parmset(:,6,g+1),0.25),0.1) ...
-        max(min(parmset(:,7,g+1),16),8)];
+        max(min(parmset(:,3,g+1),0.75),0.25) ...
+        max(min(parmset(:,4,g+1),0.75),0.25) ...
+        max(min(parmset(:,5,g+1),0.2),0.01) ...
+        max(min(parmset(:,6,g+1),0.5),0.1) ...
+        max(min(parmset(:,7,g+1),25),8)];
     
 %     parmfname=sprintf('parmsfile_%d',g);
-    parmfname=sprintf('%s_parmsfile_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_011218_ga',g+1);
+    parmfname=sprintf('%sparmsfile_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_011718_ga\',g+1);
     g_id=g+1;
     save(parmfname,'g_id','parmset');
     
-    ikeep=find(fitness(:,1,g) == max(fitness(:,1,g)));
+%     ikeep=find(fitness(:,1,g) == max(fitness(:,1,g)));
+    ikeep=find(fitness(:,1,g) >= max(reshape(fitness(:,1,:),POP*GEN,1)));
     genset(length(genset)+1:length(genset)+length(ikeep),1)=g;
     finalset(size(finalset,1)+1:size(finalset,1)+length(ikeep),:)=parmset(ikeep,:,g);
     finalevalset(size(finalevalset,1)+1:size(finalevalset,1)+length(ikeep),:)=evalset(ikeep,:,g);

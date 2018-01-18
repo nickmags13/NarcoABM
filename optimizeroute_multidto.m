@@ -45,7 +45,8 @@ if supplyfit <= losstolval  %need to consolidate supply chain
             edgecut=edgecut(~ismember(edgecut,[iprimary(ikeep_primary); ...
                 find(edgesort(edgecut,4)==edgesort(iprimary(ikeep_primary),5))]));
         else
-            ikeep_primary=ikeep_primary(ceil(length(ikeep_primary)*rand(1)));
+%             ikeep_primary=ikeep_primary(ceil(length(ikeep_primary)*rand(1)));
+            ikeep_primary=ikeep_primary(1);
             edgecut=edgecut(~ismember(edgecut,[iprimary(ikeep_primary); ...
                 find(edgesort(edgecut,4)==edgesort(iprimary(ikeep_primary),5))]));
         end

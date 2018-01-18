@@ -4,9 +4,9 @@ MRUNS=1;
 ERUNS=1;
 
 rng default
-% load saverndstate.mat
+load savedrngstate.mat
 % poolobj=parpool(10);
-% addAttachedFiles(poolobj,{'calc_neival.m','optimizeroute_multidto.m',...
+% addAttachedFiles(poolobj,{'calc_neival.m','optimizeroute_multidto.m','savedrngstate.mat',...
 %     'calc_intrisk.m','load_expmntl_parms.m','parsave_illicit_supplychain.m'});
 
 for erun=1:ERUNS
@@ -27,7 +27,8 @@ for erun=1:ERUNS
         TMAX=180;   % 15 years at monthly time steps
         
         % rng default
-        rng(mrun)
+%         rng(mrun)
+        rng(thistate)
         
         disp([erun mrun])
         
@@ -378,6 +379,7 @@ for erun=1:ERUNS
         EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
             {'EndNodes' 'Weight' 'Flows' 'Capacity'});
 %         savedState=rng;
+%         rng(thistate)
         % Allocate nodes based on suitability
         nodequant=quantile(LANDSUIT(~isnan(LANDSUIT)),[0.025 0.50 0.66 0.75 0.99]);
         inodepick=find(LANDSUIT > nodequant(3));
@@ -492,6 +494,7 @@ for erun=1:ERUNS
         RMTFAC=zeros(nnodes);   % landscape factor (remoteness) influencing S&L risk
         COASTFAC=zeros(nnodes);   % landscape factor (distance to coast) influencing S&L risk
         LATFAC=zeros(nnodes);   % decreased likelihood of S&L moving north to reflect greater DTO investment
+        BRDRFAC=zeros(nnodes);  % increased probability of S&L in department bordering an international border
         
         NEIHOOD=cell(nnodes,2);
         
@@ -570,6 +573,7 @@ for erun=1:ERUNS
         % more remote and lower the S&L risk. Start and end node unchanged.
         % remotefac=[0; 1-NodeTable.TreeCover(2:nnodes-1)./100; 0];
         remotefac=[0; 1-NodeTable.PopSuit(2:nnodes-1); 0];
+        brdrfac=[0; NodeTable.DistBorderSuit(2:nnodes-1); 0];
         % proximity to the coast also increases risk of S&L event
         % Find node distance to coast
         % lats_in=NodeTable.Lat;
@@ -612,6 +616,7 @@ for erun=1:ERUNS
             RMTFAC(j,ADJ(j,:)==1)=remotefac(ADJ(j,:)==1);
             COASTFAC(j,ADJ(j,:)==1)=coastfac(ADJ(j,:)==1);
             LATFAC(j,ADJ(j,:)==1)=latfac(ADJ(j,:)==1);
+            BRDRFAC(j,ADJ(j,:)==1)=brdrfac(ADJ(j,:)==1);
             % Transportation costs
             ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
             idist_ground=(DIST(j,ireceiver)  >0 & DIST(j,ireceiver) <= 500);
@@ -702,13 +707,9 @@ for erun=1:ERUNS
             facmat(:,:,2)=COASTFAC;
             facmat(:,:,3)=RMTFAC;
             facmat(:,:,4)=DIST./max(max(DIST));
+            facmat(:,:,5)=BRDRFAC;
             SLPROB(:,:,TSTART)=mean(facmat,3);
-            
-%             facmat=LATFAC;
-%             facmat(:,:,2)=RMTFAC;
-%             facmat(:,:,3)=DIST./max(max(DIST));
-            
-            SLPROB(:,:,TSTART)=mean(facmat,3);
+
 %             SLPROB(:,:,TSTART)=max(min(max(facmat,[],3)+DIST./max(max(DIST)),1),0);   % dynamic probability of seisure and loss at edges
             SLPROB(:,:,TSTART+1)=SLPROB(:,:,TSTART);
         end
@@ -750,6 +751,8 @@ for erun=1:ERUNS
         CTRANS(:,:,TSTART+1)=CTRANS(:,:,TSTART);
         %%% Set-up figure for trafficking movie
         MOV=zeros(nnodes,nnodes,TMAX);
+        
+%         rng(savedState)
         
         %%
         %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -795,14 +798,18 @@ for erun=1:ERUNS
                     sleligible=find(subslprob > slquant(2));
                 end
                 sleligible=sleligible(~ismember(sleligible,irevisit));
-                islevent=[irevisit; sleligible(randperm(length(sleligible),...
-                    min(max(slcpcty(t)-length(irevisit),0),length(sleligible))))];
+%                 islevent=[irevisit; sleligible(randperm(length(sleligible),...
+%                     min(max(slcpcty(t)-length(irevisit),0),length(sleligible))))];
+                sortedset=sortrows([subslprob(sleligible) sleligible],-1);
+                islevent=[irevisit; sortedset(1:min(max(slcpcty(t)-...
+                    length(irevisit),0),length(sleligible)),2)];
             end
             
             subslevent(islevent)=1;
             slevent(:,:,t)=subslevent;
             %     slevent(:,:,t)=(SLPROB(:,:,t) == 1);
-            intrdevent(:,t)=(INTRDPROB(:,t) > rand(nnodes,1));
+%             intrdevent(:,t)=(INTRDPROB(:,t) > rand(nnodes,1));
+            intrdevent(:,t)=zeros(nnodes,1);
             MOV(:,1,t)=NodeTable.Stock(:);
             
             for n=1:nnodes-1 %exclude end node
@@ -1047,10 +1054,10 @@ for erun=1:ERUNS
                 subslval=slvalue(:,:,t);
                 subslprob=SLPROB(:,:,t);
                 islcheck=(slevent(:,:,t) == 1);
-                subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
-                    (subslsuc(islcheck) > 0),slmin(islcheck));
-                %     subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
-                %         (subslval(islcheck) > 0),slmin(islcheck));
+%                 subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
+%                     (subslsuc(islcheck) > 0),slmin(islcheck));
+                subslprob(islcheck)=(1-delta_sl).*subslprob(islcheck)+delta_sl.*...
+                    (subslsuc(islcheck) > 0);
                 SLPROB(:,:,t+1)=subslprob;
             end
             %%% Interdiction capacity
@@ -1247,7 +1254,7 @@ for erun=1:ERUNS
         end
         t_firstmov(nnodes)=find(STOCK(nnodes,:)>0,1,'first');
         
-%         savefname=sprintf('supplychain_results_122717_%d_%d',erun,mrun);
+%         savefname=sprintf('supplychain_results_011718_%d_%d',erun,mrun);
 %         parsave_illicit_supplychain(savefname,EdgeTable,NodeTable,MOV,FLOW,OUTFLOW,...
 %             TOTCPTL,DTOBDGT,slsuccess,activeroute,STOCK,slperevent,slval,...
 %             nactnodes,sltot,t_firstmov);

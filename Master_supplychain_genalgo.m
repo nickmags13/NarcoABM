@@ -18,7 +18,7 @@ for p=1:POP
     TMAX=180;   % 15 years at monthly time steps
     
     % rng default
-    rng(mrun)
+    rng(thistate)
     
     % disp([erun mrun])
     
@@ -368,7 +368,7 @@ for p=1:POP
     cpcty=[];
     EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
         {'EndNodes' 'Weight' 'Flows' 'Capacity'});
-    %         savedState=rng;
+
     % Allocate nodes based on suitability
     nodequant=quantile(LANDSUIT(~isnan(LANDSUIT)),[0.025 0.50 0.66 0.75 0.99]);
     inodepick=find(LANDSUIT > nodequant(3));
@@ -483,6 +483,7 @@ for p=1:POP
     RMTFAC=zeros(nnodes);   % landscape factor (remoteness) influencing S&L risk
     COASTFAC=zeros(nnodes);   % landscape factor (distance to coast) influencing S&L risk
     LATFAC=zeros(nnodes);   % decreased likelihood of S&L moving north to reflect greater DTO investment
+    BRDRFAC=zeros(nnodes);  % increased probability of S&L in department bordering an international border
     
     NEIHOOD=cell(nnodes,2);
     
@@ -561,6 +562,7 @@ for p=1:POP
     % more remote and lower the S&L risk. Start and end node unchanged.
     % remotefac=[0; 1-NodeTable.TreeCover(2:nnodes-1)./100; 0];
     remotefac=[0; 1-NodeTable.PopSuit(2:nnodes-1); 0];
+    brdrfac=[0; NodeTable.DistBorderSuit(2:nnodes-1); 0];
     % proximity to the coast also increases risk of S&L event
     % Find node distance to coast
     % lats_in=NodeTable.Lat;
@@ -603,6 +605,7 @@ for p=1:POP
         RMTFAC(j,ADJ(j,:)==1)=remotefac(ADJ(j,:)==1);
         COASTFAC(j,ADJ(j,:)==1)=coastfac(ADJ(j,:)==1);
         LATFAC(j,ADJ(j,:)==1)=latfac(ADJ(j,:)==1);
+        BRDRFAC(j,ADJ(j,:)==1)=brdrfac(ADJ(j,:)==1);
         % Transportation costs
         ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
         idist_ground=(DIST(j,ireceiver)  >0 & DIST(j,ireceiver) <= 500);
@@ -693,6 +696,7 @@ for p=1:POP
         facmat(:,:,2)=COASTFAC;
         facmat(:,:,3)=RMTFAC;
         facmat(:,:,4)=DIST./max(max(DIST));
+        facmat(:,:,5)=BRDRFAC;
         SLPROB(:,:,TSTART)=mean(facmat,3);
         
         %             facmat=LATFAC;
@@ -741,7 +745,7 @@ for p=1:POP
     CTRANS(:,:,TSTART+1)=CTRANS(:,:,TSTART);
     %%% Set-up figure for trafficking movie
     MOV=zeros(nnodes,nnodes,TMAX);
-    
+
     %%
     %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
@@ -786,14 +790,18 @@ for p=1:POP
                 sleligible=find(subslprob > slquant(2));
             end
             sleligible=sleligible(~ismember(sleligible,irevisit));
-            islevent=[irevisit; sleligible(randperm(length(sleligible),...
-                min(max(slcpcty(t)-length(irevisit),0),length(sleligible))))];
+            %             islevent=[irevisit; sleligible(randperm(length(sleligible),...
+            %                 min(max(slcpcty(t)-length(irevisit),0),length(sleligible))))];
+            sortedset=sortrows([subslprob(sleligible) sleligible],-1);
+            islevent=[irevisit; sortedset(1:min(max(slcpcty(t)-...
+                length(irevisit),0),length(sleligible)),2)];
         end
         
         subslevent(islevent)=1;
         slevent(:,:,t)=subslevent;
         %     slevent(:,:,t)=(SLPROB(:,:,t) == 1);
-        intrdevent(:,t)=(INTRDPROB(:,t) > rand(nnodes,1));
+%         intrdevent(:,t)=(INTRDPROB(:,t) > rand(nnodes,1));
+        intrdevent(:,t)=zeros(nnodes,1);
         MOV(:,1,t)=NodeTable.Stock(:);
         
         for n=1:nnodes-1 %exclude end node
@@ -1038,10 +1046,10 @@ for p=1:POP
             subslval=slvalue(:,:,t);
             subslprob=SLPROB(:,:,t);
             islcheck=(slevent(:,:,t) == 1);
-            subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
-                (subslsuc(islcheck) > 0),slmin(islcheck));
-            %     subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
-            %         (subslval(islcheck) > 0),slmin(islcheck));
+%             subslprob(islcheck)=max((1-delta_sl).*subslprob(islcheck)+delta_sl.*...
+%                 (subslsuc(islcheck) > 0),slmin(islcheck));
+            subslprob(islcheck)=(1-delta_sl).*subslprob(islcheck)+delta_sl.*...
+                (subslsuc(islcheck) > 0);
             SLPROB(:,:,t+1)=subslprob;
         end
         %%% Interdiction capacity
@@ -1296,7 +1304,7 @@ for p=1:POP
 %     [t_firstmovcorr,t_firstmovpval,deptmovcorr,deptmovpval]=...
 %     fitness_calc(t_firstmov,deptflows_ts,cntryflows_ts);
 
-    savefname=sprintf('%sga_results_%d_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_011218_ga\',g,p);
+    savefname=sprintf('%sga_results_%d_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_011718_ga\',g,p);
     parsave_illicit_supplychain_ga(savefname,t_firstmov,deptflows_ts,cntryflows_ts);
     
 end
@@ -1307,7 +1315,7 @@ sub_deptcorr=zeros(POP,6);
 sub_deptpval=zeros(POP,6);
 for ip=1:POP
     %load resutls files
-    fname=sprintf('%sga_results_%d_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_011218_ga\',g,ip);
+    fname=sprintf('%sga_results_%d_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_011718_ga\',g,ip);
     load(fname)
     
     [t_firstmovcorr,t_firstmovpval,deptmovcorr,deptmovpval]=...
