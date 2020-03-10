@@ -523,7 +523,7 @@ for erun=1:ERUNS
             intrdevent(:,t)=zeros(nnodes,1);
             
             %%%% Check for interdiction events from optimization model
-            
+            [intrdct_events]=optimize_interdiction(t);
             %%
             MOV(:,1,t)=NodeTable.Stock(:);
             

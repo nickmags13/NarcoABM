@@ -37,5 +37,5 @@ end
 t3=mod(t,10);
 cd C:\Users\nrmagliocca\'Google Drive'\NSF_EAGER_Models
 writetable(Tflow,sprintf('%d%d%d_SL_3_MCI.csv',t1,t2,t3))
-writetable(Tintrd,sprintf('%d%d%d_SLPROB_3_MCI.csv',t1,t2,t3))
+writetable(Tintrd,sprintf('%d%d%d_SLPROB_3_MCI.csv',t1,t2,t3)) %apply to next time step's interdiction actions
 cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\NarcoABM
