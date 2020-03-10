@@ -145,7 +145,8 @@ for erun=1:ERUNS
         dptorder=sortrows(dptmat,2);
         
         %%%% Load suitability layer
-        suitflag=
+        suitbuild=suitflag(erun);
+        
         % Tree cover
         [tcov,Rtcov]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\treecov_clp.tif');
         treecov=tcov;
