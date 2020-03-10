@@ -2,22 +2,22 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%   NarcoLogic ABM   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % tic         % start run timer
-% cd C:\Users\nmagliocca\Documents\Matlab_code\NarcoLogic
+cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\NarcoABM
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %@@@@@@@@ Procedures @@@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 TSTART=1;
 TMAX=180;   % 15 years at monthly time steps
 
-% rng default
-rng(mrun)
+rng default
+% rng(mrun)
 
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 %@@@@@@@@ Environment @@@@@@@@@
 %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 % Load Central America shapefiles and rasters
-[CAadm0,CAattr0]=shaperead('X:\CentralAmericaData\GADM\g2015_2014_0\CAadm0.shp',...
+[CAadm0,CAattr0]=shaperead('D:\CentralAmerica\GADM\g2015_2014_0\CAadm0.shp',...
     'UseGeoCoords',true);  %polygons
 % calat=cat(1,CAmap(:).Lat);
 % calon=CAmap.Lon;
@@ -32,21 +32,21 @@ latin=extractfield(CAadm0,'Lat')';
 lonin=extractfield(CAadm0,'Lon')';
 % [CAadm0_latrdc,CAadm0_lonrdc]=reducem(latin,lonin);
     
-[CAadm1,CAattr1]=shaperead('X:\CentralAmericaData\GADM\g2015_2014_1\CAadm1.shp',...
+[CAadm1,CAattr1]=shaperead('D:\CentralAmerica\GADM\g2015_2014_1\CAadm1.shp',...
     'UseGeoCoords',true);  %polygons
 % calat=cat(1,CAmap(:).Lat);
 % calon=CAmap.Lon;
 % cabox=CAmap.BoundingBox;
 caadmid1=cat(1,CAattr1.ADM1_CODE);
 
-[CAcntr,CAcntrattr]=shaperead('X:\CentralAmericaData\CentralAmerica\Vector\CAcentroids.shp','UseGeoCoords',...
+[CAcntr,CAcntrattr]=shaperead('D:\CentralAmerica\Vector\CAcentroids.shp','UseGeoCoords',...
     true);
 cntrlat=cat(1,CAcntr.Lat);
 cntrlon=cat(1,CAcntr.Lon);
 CApts=geopoint(CAcntr);
 
 % Spatial narco vars by administrative departments
-[dptvars,dptvarsattr]=shaperead('X:\CentralAmericaData\GADM\CA_ALLt_UTM\CA_ALLt_narcovars.shp',...
+[dptvars,dptvarsattr]=shaperead('D:\CentralAmerica\GADM\CA_ALLt_UTM\CA_ALLt_narcovars.shp',...
     'UseGeoCoords',true);
 dptcode=cat(1,dptvarsattr.ADM1_CODE);
 intlbrdrdmmy=cat(1,dptvarsattr.MAX_1);
@@ -54,13 +54,13 @@ coastdmmy=cat(1,dptvarsattr.COASTDMMY);
 % meanlat=cat(1,dptvarsattr.MEAN_1);
 
 
-% [POmills_pts,POattr0]=shaperead('X:\CentralAmericaData\Model_inputs\ca_pomill_pts.SHP','UseGeoCoords',...
+% [POmills_pts,POattr0]=shaperead('X:\CentralAmerica\Model_inputs\ca_pomill_pts.SHP','UseGeoCoords',...
 %     true);
 
 
 %%% Raster layers %%%
 % Central America adminstrative boundaries level 2, objectid
-[dptgrid,Rdptgrid]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\dptgrid_clp.tif');
+[dptgrid,Rdptgrid]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\dptgrid_clp.tif');
 dptnodataval=-9999;
 dptgrid=double(dptgrid);
 % dptgrid(dptgrid == dptnodataval)=NaN;     %remove No Data value
@@ -68,7 +68,7 @@ dptcodes=unique(dptgrid);
 dptcodes=dptcodes(dptcodes ~= dptnodataval);
 
 % Central America adminstrative boundaries level 0, objectid
-[cagrid_cntry,Rcagrid_cntry]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\ca_cntry_clp.tif');
+[cagrid_cntry,Rcagrid_cntry]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\ca_cntry_clp.tif');
 cntrynodataval=255;
 ca_adm0=double(cagrid_cntry);
 ca_adm0(cagrid_cntry == cntrynodataval)=NaN; %remove No Data value
@@ -119,7 +119,7 @@ dptmat=[dptcodes dptvec];
 dptorder=sortrows(dptmat,2);
 
 % Tree cover
-[tcov,Rtcov]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\treecov_clp.tif');
+[tcov,Rtcov]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\treecov_clp.tif');
 treecov=tcov;
 tcovnodataval=255;
 treecov=double(treecov);
@@ -133,20 +133,20 @@ for cc=1:length(dptcodes)
 end
 
 % Distance to coast and country borders
-[dcoast,Rdcoast]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\dcoast_clp.tif');
+[dcoast,Rdcoast]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\dcoast_clp.tif');
 dcoastnodataval=-9999;
 dcoast(cagrid_cntry==cntrynodataval)=NaN;
 dcoast(dcoast == dcoastnodataval)=NaN;
 dcoast_suit=1-dcoast./max(max(dcoast));
 
-% [dbrdr,Rdbrdr]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\dbrdr_clp.tif');
+% [dbrdr,Rdbrdr]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\dbrdr_clp.tif');
 % brdrnodataval=-9999;
 % dbrdr(cagrid_cntry==cntrynodataval)=NaN;
 % dbrdr(dbrdr == brdrnodataval)=NaN;
 % dbrdr_suit=1-dbrdr./max(max(dbrdr));
     
 % Population density as a proxy for remoteness
-[popden,Rpopden]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\popden_clp.tif');
+[popden,Rpopden]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\popden_clp.tif');
 popnodataval=-1;
 popden=double(popden);
 popden(cagrid_cntry==cntrynodataval)=NaN;
@@ -158,7 +158,7 @@ pop_suit(popden > popq(3))=0;
 pop_suit(popden <= popq(3))=1-popden(popden <= popq(3))./popq(3);
 
 % Topography
-[slope,Rslope]=geotiffread('X:\CentralAmericaData\Model_inputs\ca_slope_250m.tif');
+[slope,Rslope]=geotiffread('D:\CentralAmerica\Model_inputs\ca_slope_250m.tif');
 slope(cagrid_cntry==cntrynodataval)=NaN;
 slopeclass=[8 16 30 31; 0 25 50 100]';   % GAEZ (see Magliocca et al., 2013, PLOS ONE)
 slp_suit=zeros(size(slope));
@@ -168,7 +168,7 @@ slp_suit(slope >= slopeclass(2,1) & slope < slopeclass(3,1))=1-slopeclass(3,2)/1
 slp_suit(slope >= slopeclass(4,1))=1-slopeclass(4,2)/100;
 
 % Market Access
-[mktacc,Rmktacc]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\mktacc_clp.tif');
+[mktacc,Rmktacc]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\mktacc_clp.tif');
 manodataval=-9999;
 mktacc=double(mktacc);
 mktacc(cagrid_cntry==cntrynodataval)=NaN;
@@ -177,21 +177,21 @@ mktacc_suit=mktacc;
 % submasuit=mktacc./median(mktacc(~isnan(mktacc)));
 
 % Maize Yield
-[mazyld,Rmazyld]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\mazyld_clp.tif');
+[mazyld,Rmazyld]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\mazyld_clp.tif');
 maznodataval=-9999;
 mazyld=double(mazyld);
 mazyld(cagrid_cntry==cntrynodataval)=NaN;
 mazyld(mazyld == maznodataval)=NaN;
 
 % Oil Palm Yield
-[plmyld,Rplmyld]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\plmyld_clp.tif');
+[plmyld,Rplmyld]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\plmyld_clp.tif');
 plmnodataval=-9999;
 plmyld=double(plmyld);
 plmyld(cagrid_cntry==cntrynodataval)=NaN;
 plmyld(plmyld == plmnodataval)=NaN;
 
 % Cattle density
-[ctlden,Rctlden]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\ctlden_clp.tif');
+[ctlden,Rctlden]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\ctlden_clp.tif');
 plmnodataval=-9999;
 ctlden=double(ctlden);
 ctlden(cagrid_cntry==cntrynodataval)=NaN;
@@ -208,7 +208,7 @@ ctlden(ctlden == plmnodataval)=NaN;
 % 7. plantation — citrus, vineyard, coffee, etc.
 % 8. water
 % 9. plantation tree — eucalyptus, pine, etc.
-[luint,Rluint]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\luint_clp.tif');
+[luint,Rluint]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\luint_clp.tif');
 lunodataval=0;
 luint(cagrid_cntry==cntrynodataval)=NaN;
 luint(luint == lunodataval)=NaN;
@@ -218,7 +218,7 @@ lu_suit(luint == 2)=0.5;
 lu_suit(luint == 3 | luint == 4 | luint == 5)=1;
 
 % Protected Areas
-[protarea,Rprotarea]=geotiffread('X:\CentralAmericaData\Model_inputs\clipped\protarea_clp.tif');
+[protarea,Rprotarea]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\protarea_clp.tif');
 protnodataval=255;
 protarea=double(protarea);
 protarea(cagrid_cntry==cntrynodataval)=NaN;

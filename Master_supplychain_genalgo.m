@@ -5,7 +5,7 @@ rng default
 erun=POP;
 mrun=1;
 
-for p=1:POP
+parfor p=1:POP
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%   NarcoLogic ABM   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -369,15 +369,20 @@ for p=1:POP
     EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
         {'EndNodes' 'Weight' 'Flows' 'Capacity'});
 
+    dtoassign=[1; 2; 1; 2];
+    
     % Allocate nodes based on suitability
     nodequant=quantile(LANDSUIT(~isnan(LANDSUIT)),[0.025 0.50 0.66 0.75 0.99]);
-    inodepick=find(LANDSUIT > nodequant(3));
+%     inodepick=find(LANDSUIT > nodequant(4));
+    inodepick=find(LANDSUIT > 0.8);
     avgnodealloc=ceil((length(inodepick)*nodepct)/length(dptcodes));
     pctdptsuit=zeros(length(dptorder(:,1)),1);
     for dc=1:length(pctdptsuit)
         dptsuit=LANDSUIT(dptgrid == dptorder(dc,1));
-        pctdptsuit(dc)=length(find(dptsuit > nodequant(3)))/length(dptsuit);
+%         pctdptsuit(dc)=length(find(dptsuit > nodequant(3)))/length(dptsuit);
+        pctdptsuit(dc)=length(find(dptsuit > 0.8))/length(dptsuit);
     end
+    allocnodes=round(1.75*pctdptsuit/mean(pctdptsuit));
     for i=1:length(dptorder)
         if pctdptsuit(i)==0
             continue
@@ -386,18 +391,11 @@ for p=1:POP
             idptmnt=find(dptgrid == dptorder(i,1));
             ipotnode=find(ismember(idptmnt,inodepick)==1);
             % allocate nodes per department based on suitability within department
-            %             allocnodes=round(avgnodealloc*pctdptsuit(i)./median(pctdptsuit(pctdptsuit~=0)));
-            %             if isempty(find(ipotnode,1)) == 1
-            %                 subinodepick=find(LANDSUIT(idptmnt) > nodequant(2));
-            %                 if isempty(find(subinodepick,1)) == 1
-            %                     continue
-            %                 end
-            %                 %         ipotnode=find(ismember(idptmnt,subinodepick)==1);
-            %                 ipotnode=subinodepick;
-            %             end
-            
             randnode=idptmnt(ipotnode(randperm(length(ipotnode),...
-                min(2,length(ipotnode)))));
+                    allocnodes(i))));
+                
+%             randnode=idptmnt(ipotnode(randperm(length(ipotnode),...
+%                 min(4,length(ipotnode)))));
             
             [nrow,ncol]=ind2sub(size(dptgrid),randnode);
             [nlat,nlon]=pix2latlon(Rdptgrid,nrow,ncol);
@@ -418,6 +416,7 @@ for p=1:POP
             nodelusuit=[nodelusuit; lu_suit(randnode)];
             nodelsuit=[nodelsuit; LANDSUIT(randnode)];
             nodedto=[nodedto; zeros(length(randnode),1)];
+%             nodedto=[nodedto; dtoassign(1:min(length(dtoassign),length(ipotnode)))];
             if i == 1
                 snode=ones(length(randnode),1);
                 tnode=(1+(1:length(randnode)))';
@@ -484,6 +483,7 @@ for p=1:POP
     COASTFAC=zeros(nnodes);   % landscape factor (distance to coast) influencing S&L risk
     LATFAC=zeros(nnodes);   % decreased likelihood of S&L moving north to reflect greater DTO investment
     BRDRFAC=zeros(nnodes);  % increased probability of S&L in department bordering an international border
+    SUITFAC=zeros(nnodes);
     
     NEIHOOD=cell(nnodes,2);
     
@@ -563,6 +563,8 @@ for p=1:POP
     % remotefac=[0; 1-NodeTable.TreeCover(2:nnodes-1)./100; 0];
     remotefac=[0; 1-NodeTable.PopSuit(2:nnodes-1); 0];
     brdrfac=[0; NodeTable.DistBorderSuit(2:nnodes-1); 0];
+    suitfac=[0; NodeTable.LandSuit(2:nnodes-1); 0];
+    
     % proximity to the coast also increases risk of S&L event
     % Find node distance to coast
     % lats_in=NodeTable.Lat;
@@ -606,6 +608,8 @@ for p=1:POP
         COASTFAC(j,ADJ(j,:)==1)=coastfac(ADJ(j,:)==1);
         LATFAC(j,ADJ(j,:)==1)=latfac(ADJ(j,:)==1);
         BRDRFAC(j,ADJ(j,:)==1)=brdrfac(ADJ(j,:)==1);
+        SUITFAC(j,ADJ(j,:)==1)=suitfac(ADJ(j,:)==1);
+        
         % Transportation costs
         ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
         idist_ground=(DIST(j,ireceiver)  >0 & DIST(j,ireceiver) <= 500);
@@ -659,23 +663,33 @@ for p=1:POP
         southdir=find(isnan(dcoast(NodeTable.Row(nn)+1:size(LANDSUIT,1),...
             NodeTable.Col(nn)))==1,1,'first');
         [mindist,imindist]=min([westdir eastdir northdir southdir]);
-        if imindist == 1 || imindist == 4
-            %                 if (eastdir-westdir)/eastdir < 0.2
-            %                     NodeTable.DTO(nn)=2;
-            %                 elseif (northdir-southdir)/northdir < 0.2
-            %                     NodeTable.DTO(nn)=2;
-            %                 else
+%         if southdir < northdir
+%             NodeTable.DTO(nn)=1;
+%         else
+%             NodeTable.DTO(nn)=2;
+%         end
+        if westdir < 2.5*eastdir
             NodeTable.DTO(nn)=1;
-            %                 end
         else
-            if (westdir-eastdir)/westdir < 0.2
-                NodeTable.DTO(nn)=1;
-            elseif (southdir-northdir)/southdir < 0.2
-                NodeTable.DTO(nn)=1;
-            else
-                NodeTable.DTO(nn)=2;
-            end
+            NodeTable.DTO(nn)=2;
         end
+%         if imindist == 1 || imindist == 4
+%             %                 if (eastdir-westdir)/eastdir < 0.2
+%             %                     NodeTable.DTO(nn)=2;
+%             %                 elseif (northdir-southdir)/northdir < 0.2
+%             %                     NodeTable.DTO(nn)=2;
+%             %                 else
+%             NodeTable.DTO(nn)=1;
+%             %                 end
+%         else
+%             if (westdir-eastdir)/westdir < 0.2
+%                 NodeTable.DTO(nn)=1;
+%             elseif (southdir-northdir)/southdir < 0.2
+%                 NodeTable.DTO(nn)=1;
+%             else
+%                 NodeTable.DTO(nn)=2;
+%             end
+%         end
     end
     
     %%% Initialize Interdiction agent
@@ -697,7 +711,9 @@ for p=1:POP
         facmat(:,:,3)=RMTFAC;
         facmat(:,:,4)=DIST./max(max(DIST));
         facmat(:,:,5)=BRDRFAC;
-        SLPROB(:,:,TSTART)=mean(facmat,3);
+        facmat(:,:,6)=SUITFAC;
+%         SLPROB(:,:,TSTART)=mean(facmat,3);
+        SLPROB(:,:,TSTART)=mean(facmat(:,:,1:5),3);
         
         %             facmat=LATFAC;
         %             facmat(:,:,2)=RMTFAC;
@@ -1304,7 +1320,7 @@ for p=1:POP
 %     [t_firstmovcorr,t_firstmovpval,deptmovcorr,deptmovpval]=...
 %     fitness_calc(t_firstmov,deptflows_ts,cntryflows_ts);
 
-    savefname=sprintf('%sga_results_%d_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_011718_ga\',g,p);
+    savefname=sprintf('%sga_results_%d_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_013018_ga\',g,p);
     parsave_illicit_supplychain_ga(savefname,t_firstmov,deptflows_ts,cntryflows_ts);
     
 end
@@ -1315,7 +1331,7 @@ sub_deptcorr=zeros(POP,6);
 sub_deptpval=zeros(POP,6);
 for ip=1:POP
     %load resutls files
-    fname=sprintf('%sga_results_%d_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_011718_ga\',g,ip);
+    fname=sprintf('%sga_results_%d_%d','C:\Users\nrmagliocca\Box Sync\Data Drive\model_results\SupplyChain_013018_ga\',g,ip);
     load(fname)
     
     [t_firstmovcorr,t_firstmovpval,deptmovcorr,deptmovpval]=...

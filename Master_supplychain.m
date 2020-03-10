@@ -1,19 +1,20 @@
 %%%%%%%% Master file to run experiments %%%%%%%%%%%%
+cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\NarcoABM
 tic
-MRUNS=1;
+MRUNS=6;
 ERUNS=1;
 
 rng default
 load savedrngstate.mat
 % poolobj=parpool(10);
-% addAttachedFiles(poolobj,{'calc_neival.m','optimizeroute_multidto.m','savedrngstate.mat',...
+% addAttachedFiles(poolobj,{'calc_neival.m','optimizeroute_multidto.m',...
 %     'calc_intrisk.m','load_expmntl_parms.m','parsave_illicit_supplychain.m'});
 
 for erun=1:ERUNS
     
     rng default
     
-    for mrun=1:MRUNS
+   for mrun=6:MRUNS
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %%%%%%%%%%%%%%%%%%%%%%%%%%   NarcoLogic ABM   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -27,15 +28,15 @@ for erun=1:ERUNS
         TMAX=180;   % 15 years at monthly time steps
         
         % rng default
-%         rng(mrun)
-        rng(thistate)
+        rng(mrun)
+%         rng(thestate2)
         
         disp([erun mrun])
         
         % load experimental parameters file
         [sl_max,sl_min,baserisk,riskmltplr,startstock,sl_learn,rt_learn,...
             losslim,prodgrow,targetseize,intcpctymodel,profitmodel,endstock,...
-            growthmdl,timewght,locthink,expandmax,empSLflag]=load_expmntl_parms(ERUNS);
+            growthmdl,timewght,locthink,expandmax,empSLflag,suitflag]=load_expmntl_parms(ERUNS);
         
         ccdb = [1	0	1	1	1	0	0	1	1	1	0	0	0	0   0
                 0	0	3	1	1	0	0	1	0	0	0	1	0	1   0
@@ -54,10 +55,10 @@ for erun=1:ERUNS
         %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         
         % Load Central America shapefiles and rasters
-        [CAadm0,CAattr0]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\GADM\g2015_2014_0\CAadm0.shp',...
-            'UseGeoCoords',true);
-%         [CAadm0,CAattr0]=shaperead('D:\CentralAmericaData\GADM\g2015_2014_0\CAadm0.shp',...
-%             'UseGeoCoords',true);  %polygons
+%         [CAadm0,CAattr0]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmerica\GADM\g2015_2014_0\CAadm0.shp',...
+%             'UseGeoCoords',true);
+        [CAadm0,CAattr0]=shaperead('D:\CentralAmerica\GADM\g2015_2014_0\CAadm0.shp',...
+            'UseGeoCoords',true);  %polygons
         % calat=cat(1,CAmap(:).Lat);
         % calon=CAmap.Lon;
         % cabox=CAmap.BoundingBox;
@@ -71,35 +72,30 @@ for erun=1:ERUNS
         lonin=extractfield(CAadm0,'Lon')';
         % [CAadm0_latrdc,CAadm0_lonrdc]=reducem(latin,lonin);
         
-        [CAadm1,CAattr1]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\GADM\g2015_2014_1\CAadm1.shp',...
+        [CAadm1,CAattr1]=shaperead('D:\CentralAmerica\GADM\g2015_2014_1\CAadm1.shp',...
             'UseGeoCoords',true);  %polygons
         % calat=cat(1,CAmap(:).Lat);
         % calon=CAmap.Lon;
         % cabox=CAmap.BoundingBox;
         caadmid1=cat(1,CAattr1.ADM1_CODE);
         
-        [CAcntr,CAcntrattr]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\CentralAmerica\Vector\CAcentroids.shp','UseGeoCoords',...
+        [CAcntr,CAcntrattr]=shaperead('D:\CentralAmerica\Vector\CAcentroids.shp','UseGeoCoords',...
             true);
         cntrlat=cat(1,CAcntr.Lat);
         cntrlon=cat(1,CAcntr.Lon);
         CApts=geopoint(CAcntr);
         
         % Spatial narco vars by administrative departments
-        [dptvars,dptvarsattr]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\GADM\CA_ALLt_UTM\CA_ALLt_narcovars.shp',...
+        [dptvars,dptvarsattr]=shaperead('D:\CentralAmerica\GADM\CA_ALLt_UTM\CA_ALLt_narcovars.shp',...
             'UseGeoCoords',true);
         dptcode=cat(1,dptvarsattr.ADM1_CODE);
         intlbrdrdmmy=cat(1,dptvarsattr.MAX_1);
         coastdmmy=cat(1,dptvarsattr.COASTDMMY);
         % meanlat=cat(1,dptvarsattr.MEAN_1);
         
-        
-        % [POmills_pts,POattr0]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\ca_pomill_pts.SHP','UseGeoCoords',...
-        %     true);
-        
-        
         %%% Raster layers %%%
         % Central America adminstrative boundaries level 2, objectid
-        [dptgrid,Rdptgrid]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\dptgrid_clp.tif');
+        [dptgrid,Rdptgrid]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\dptgrid_clp.tif');
         dptnodataval=-9999;
         dptgrid=double(dptgrid);
         % dptgrid(dptgrid == dptnodataval)=NaN;     %remove No Data value
@@ -107,7 +103,7 @@ for erun=1:ERUNS
         dptcodes=dptcodes(dptcodes ~= dptnodataval);
         
         % Central America adminstrative boundaries level 0, objectid
-        [cagrid_cntry,Rcagrid_cntry]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\ca_cntry_clp.tif');
+        [cagrid_cntry,Rcagrid_cntry]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\ca_cntry_clp.tif');
         cntrynodataval=255;
         ca_adm0=double(cagrid_cntry);
         ca_adm0(cagrid_cntry == cntrynodataval)=NaN; %remove No Data value
@@ -121,15 +117,6 @@ for erun=1:ERUNS
         % Salvador(70)
         % cntryorder=[173 55 161 101 70 94];
         cntrycodes=cntrycodes(cntrycodes ~= 0 & cntrycodes ~= cntrynodataval);
-        % pandptcodes=unique(dptgrid(ca_adm0 == 173));
-        % pandptcodes=pandptcodes(pandptcodes ~= -9999);
-        % meanpanlon=zeros(length(pandptcodes),1);
-        % for j=1:length(pandptcodes)
-        %     [nrow,ncol]=ind2sub(size(dptgrid),find(dptgrid == pandptcodes(j)));
-        %     [nlat,nlon]=pix2latlon(Rdptgrid,nrow,ncol);
-        %     meanpanlon(j)=mean(nlon);
-        % end
-        % sortpanlon=sortrows([pandptcodes meanpanlon],-2);
         
         dbrdr_suit=zeros(size(dptgrid));
         for iadm=1:length(dptcodes)
@@ -157,8 +144,10 @@ for erun=1:ERUNS
         dptmat=[dptcodes dptvec];
         dptorder=sortrows(dptmat,2);
         
+        %%%% Load suitability layer
+        suitflag=
         % Tree cover
-        [tcov,Rtcov]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\treecov_clp.tif');
+        [tcov,Rtcov]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\treecov_clp.tif');
         treecov=tcov;
         tcovnodataval=255;
         treecov=double(treecov);
@@ -172,20 +161,20 @@ for erun=1:ERUNS
         end
         
         % Distance to coast and country borders
-        [dcoast,Rdcoast]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\dcoast_clp.tif');
+        [dcoast,Rdcoast]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\dcoast_clp.tif');
         dcoastnodataval=-9999;
         dcoast(cagrid_cntry==cntrynodataval)=NaN;
         dcoast(dcoast == dcoastnodataval)=NaN;
         dcoast_suit=1-dcoast./max(max(dcoast));
         
-        % [dbrdr,Rdbrdr]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\dbrdr_clp.tif');
+        % [dbrdr,Rdbrdr]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmerica\Model_inputs\clipped\dbrdr_clp.tif');
         % brdrnodataval=-9999;
         % dbrdr(cagrid_cntry==cntrynodataval)=NaN;
         % dbrdr(dbrdr == brdrnodataval)=NaN;
         % dbrdr_suit=1-dbrdr./max(max(dbrdr));
         
         % Population density as a proxy for remoteness
-        [popden,Rpopden]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\popden_clp.tif');
+        [popden,Rpopden]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\popden_clp.tif');
         popnodataval=-1;
         popden=double(popden);
         popden(cagrid_cntry==cntrynodataval)=NaN;
@@ -197,7 +186,7 @@ for erun=1:ERUNS
         pop_suit(popden <= popq(3))=1-popden(popden <= popq(3))./popq(3);
         
         % Topography
-        [slope,Rslope]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\ca_slope_250m.tif');
+        [slope,Rslope]=geotiffread('D:\CentralAmerica\Model_inputs\ca_slope_250m.tif');
         slope(cagrid_cntry==cntrynodataval)=NaN;
         slopeclass=[8 16 30 31; 0 25 50 100]';   % GAEZ (see Magliocca et al., 2013, PLOS ONE)
         slp_suit=zeros(size(slope));
@@ -207,7 +196,7 @@ for erun=1:ERUNS
         slp_suit(slope >= slopeclass(4,1))=1-slopeclass(4,2)/100;
         
         % Market Access
-        [mktacc,Rmktacc]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\mktacc_clp.tif');
+        [mktacc,Rmktacc]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\mktacc_clp.tif');
         manodataval=-9999;
         mktacc=double(mktacc);
         mktacc(cagrid_cntry==cntrynodataval)=NaN;
@@ -216,21 +205,21 @@ for erun=1:ERUNS
         % submasuit=mktacc./median(mktacc(~isnan(mktacc)));
         
 %         % Maize Yield
-%         [mazyld,Rmazyld]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\mazyld_clp.tif');
+%         [mazyld,Rmazyld]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmerica\Model_inputs\clipped\mazyld_clp.tif');
 %         maznodataval=-9999;
 %         mazyld=double(mazyld);
 %         mazyld(cagrid_cntry==cntrynodataval)=NaN;
 %         mazyld(mazyld == maznodataval)=NaN;
 %         
 %         % Oil Palm Yield
-%         [plmyld,Rplmyld]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\plmyld_clp.tif');
+%         [plmyld,Rplmyld]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmerica\Model_inputs\clipped\plmyld_clp.tif');
 %         plmnodataval=-9999;
 %         plmyld=double(plmyld);
 %         plmyld(cagrid_cntry==cntrynodataval)=NaN;
 %         plmyld(plmyld == plmnodataval)=NaN;
 %         
 %         % Cattle density
-%         [ctlden,Rctlden]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\ctlden_clp.tif');
+%         [ctlden,Rctlden]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmerica\Model_inputs\clipped\ctlden_clp.tif');
 %         plmnodataval=-9999;
 %         ctlden=double(ctlden);
 %         ctlden(cagrid_cntry==cntrynodataval)=NaN;
@@ -247,7 +236,7 @@ for erun=1:ERUNS
         % 7. plantation — citrus, vineyard, coffee, etc.
         % 8. water
         % 9. plantation tree — eucalyptus, pine, etc.
-        [luint,Rluint]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\luint_clp.tif');
+        [luint,Rluint]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\luint_clp.tif');
         lunodataval=0;
         luint(cagrid_cntry==cntrynodataval)=NaN;
         luint(luint == lunodataval)=NaN;
@@ -257,7 +246,7 @@ for erun=1:ERUNS
         lu_suit(luint == 3 | luint == 4 | luint == 5)=1;
         
         % Protected Areas
-        [protarea,Rprotarea]=geotiffread('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\Model_inputs\clipped\protarea_clp.tif');
+        [protarea,Rprotarea]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\protarea_clp.tif');
         protnodataval=255;
         protarea=double(protarea);
         protarea(cagrid_cntry==cntrynodataval)=NaN;
@@ -289,12 +278,12 @@ for erun=1:ERUNS
         wghts=[tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]./...
             sum([tcwght brdwght dcstwght mktwght popwght slpwght luwght invstwght protwght]);
         
-%         %%% Null Model
+% %         %%% Null Model
 %         LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
 %             wghts(4).*mktacc_suit+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
 %             lu_suit+wghts(7).*invst_suit+wghts(8)*(1-protsuit);  % land suitability based on biophysical and narco variable predictors
         
-        % %%% Full model
+        %%% Full model
         LANDSUIT=wghts(1).*treecov./100+wghts(2).*dbrdr_suit+wghts(3).*dcoast_suit+...
             wghts(4).*(1-mktacc_suit)+wghts(5).*pop_suit+wghts(6).*slp_suit+wghts(6).*...
             lu_suit+wghts(7).*invst_suit+wghts(8)*protsuit;  % land suitability based on biophysical and narco variable predictors
@@ -378,17 +367,25 @@ for erun=1:ERUNS
         cpcty=[];
         EdgeTable=table([snode tnode],weights,flows,cpcty,'VariableNames',...
             {'EndNodes' 'Weight' 'Flows' 'Capacity'});
-%         savedState=rng;
-%         rng(thistate)
+        
+        savedState=rng;
+        rng(thistate)
+
+        dtoassign=[1; 2; 1; 2];
+
         % Allocate nodes based on suitability
         nodequant=quantile(LANDSUIT(~isnan(LANDSUIT)),[0.025 0.50 0.66 0.75 0.99]);
-        inodepick=find(LANDSUIT > nodequant(3));
+%         inodepick=find(LANDSUIT > nodequant(4));
+        inodepick=find(LANDSUIT > 0.8);
         avgnodealloc=ceil((length(inodepick)*nodepct)/length(dptcodes));
         pctdptsuit=zeros(length(dptorder(:,1)),1);
         for dc=1:length(pctdptsuit)
             dptsuit=LANDSUIT(dptgrid == dptorder(dc,1));
-            pctdptsuit(dc)=length(find(dptsuit > nodequant(3)))/length(dptsuit);
+%             pctdptsuit(dc)=length(find(dptsuit > nodequant(3)))/length(dptsuit);
+            pctdptsuit(dc)=length(find(dptsuit > 0.8))/length(dptsuit);
         end
+        allocnodes=round(1.75*pctdptsuit/mean(pctdptsuit));
+%         allocnodes=round(pctdptsuit/mean(pctdptsuit));
         for i=1:length(dptorder)
             if pctdptsuit(i)==0
                 continue
@@ -397,18 +394,11 @@ for erun=1:ERUNS
                 idptmnt=find(dptgrid == dptorder(i,1));
                 ipotnode=find(ismember(idptmnt,inodepick)==1);
                 % allocate nodes per department based on suitability within department
-                %             allocnodes=round(avgnodealloc*pctdptsuit(i)./median(pctdptsuit(pctdptsuit~=0)));
-                %             if isempty(find(ipotnode,1)) == 1
-                %                 subinodepick=find(LANDSUIT(idptmnt) > nodequant(2));
-                %                 if isempty(find(subinodepick,1)) == 1
-                %                     continue
-                %                 end
-                %                 %         ipotnode=find(ismember(idptmnt,subinodepick)==1);
-                %                 ipotnode=subinodepick;
-                %             end
-                
                 randnode=idptmnt(ipotnode(randperm(length(ipotnode),...
-                    min(2,length(ipotnode)))));
+                    allocnodes(i))));
+                
+%                 randnode=idptmnt(ipotnode(randperm(length(ipotnode),...
+%                     min(4,length(ipotnode)))));
                 
                 [nrow,ncol]=ind2sub(size(dptgrid),randnode);
                 [nlat,nlon]=pix2latlon(Rdptgrid,nrow,ncol);
@@ -429,6 +419,7 @@ for erun=1:ERUNS
                 nodelusuit=[nodelusuit; lu_suit(randnode)];
                 nodelsuit=[nodelsuit; LANDSUIT(randnode)];
                 nodedto=[nodedto; zeros(length(randnode),1)];
+%                 nodedto=[nodedto; dtoassign(1:min(length(dtoassign),length(ipotnode)))];
                 if i == 1
                     snode=ones(length(randnode),1);
                     tnode=(1+(1:length(randnode)))';
@@ -495,6 +486,7 @@ for erun=1:ERUNS
         COASTFAC=zeros(nnodes);   % landscape factor (distance to coast) influencing S&L risk
         LATFAC=zeros(nnodes);   % decreased likelihood of S&L moving north to reflect greater DTO investment
         BRDRFAC=zeros(nnodes);  % increased probability of S&L in department bordering an international border
+        SUITFAC=zeros(nnodes);
         
         NEIHOOD=cell(nnodes,2);
         
@@ -516,8 +508,10 @@ for erun=1:ERUNS
         totslrisk=zeros(1,TMAX);        % network-wide average S&L risk
         slcpcty=zeros(1,TMAX);
         
-%         rng(86);
-        
+        rng(savedState);
+        hitrngstate=rand(nnodes,1);
+%         savedState=rng;
+%         rng(mrun)
         for k=1:nnodes-1
             if k == 1
                 newedges=2:nnodes;
@@ -574,6 +568,8 @@ for erun=1:ERUNS
         % remotefac=[0; 1-NodeTable.TreeCover(2:nnodes-1)./100; 0];
         remotefac=[0; 1-NodeTable.PopSuit(2:nnodes-1); 0];
         brdrfac=[0; NodeTable.DistBorderSuit(2:nnodes-1); 0];
+        suitfac=[0; NodeTable.LandSuit(2:nnodes-1); 0];
+        
         % proximity to the coast also increases risk of S&L event
         % Find node distance to coast
         % lats_in=NodeTable.Lat;
@@ -617,6 +613,8 @@ for erun=1:ERUNS
             COASTFAC(j,ADJ(j,:)==1)=coastfac(ADJ(j,:)==1);
             LATFAC(j,ADJ(j,:)==1)=latfac(ADJ(j,:)==1);
             BRDRFAC(j,ADJ(j,:)==1)=brdrfac(ADJ(j,:)==1);
+            SUITFAC(j,ADJ(j,:)==1)=suitfac(ADJ(j,:)==1);
+            
             % Transportation costs
             ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
             idist_ground=(DIST(j,ireceiver)  >0 & DIST(j,ireceiver) <= 500);
@@ -670,23 +668,44 @@ for erun=1:ERUNS
             southdir=find(isnan(dcoast(NodeTable.Row(nn)+1:size(LANDSUIT,1),...
                 NodeTable.Col(nn)))==1,1,'first');
             [mindist,imindist]=min([westdir eastdir northdir southdir]);
-            if imindist == 1 || imindist == 4
-%                 if (eastdir-westdir)/eastdir < 0.2
-%                     NodeTable.DTO(nn)=2;
-%                 elseif (northdir-southdir)/northdir < 0.2
-%                     NodeTable.DTO(nn)=2;
+%             if NodeTable.Lat(nn) < 10 || NodeTable.Lat(nn) > 13
+%                 if southdir < northdir
+%                     NodeTable.DTO(nn)=1;
 %                 else
-                    NodeTable.DTO(nn)=1;
+%                     NodeTable.DTO(nn)=2;
 %                 end
-            else
-                if (westdir-eastdir)/westdir < 0.2
-                    NodeTable.DTO(nn)=1;
-                elseif (southdir-northdir)/southdir < 0.2
+%             else
+                if westdir < 2.5*eastdir
                     NodeTable.DTO(nn)=1;
                 else
                     NodeTable.DTO(nn)=2;
                 end
-            end
+%             end
+%             if southdir < northdir
+%                 NodeTable.DTO(nn)=1;
+%             else
+%                 NodeTable.DTO(nn)=2;
+%             end
+            
+%             if imindist == 1 || imindist == 4
+% %                 if (eastdir-westdir)/eastdir < 0.2
+% %                     NodeTable.DTO(nn)=2;
+% %                 elseif (northdir-southdir)/northdir < 0.2
+% %                     NodeTable.DTO(nn)=2;
+% %                 else
+%                     NodeTable.DTO(nn)=1;
+% %                 end
+%             else
+%                 if (westdir-eastdir)/westdir < 0.2
+% %                 if (westdir-eastdir)/westdir < 0.1
+%                     NodeTable.DTO(nn)=1;
+%                 elseif (southdir-northdir)/southdir < 0.2
+% %                 elseif (southdir-northdir)/southdir < 0.1
+%                     NodeTable.DTO(nn)=1;
+%                 else
+%                     NodeTable.DTO(nn)=2;
+%                 end
+%             end
         end
         
         %%% Initialize Interdiction agent
@@ -708,7 +727,9 @@ for erun=1:ERUNS
             facmat(:,:,3)=RMTFAC;
             facmat(:,:,4)=DIST./max(max(DIST));
             facmat(:,:,5)=BRDRFAC;
-            SLPROB(:,:,TSTART)=mean(facmat,3);
+            facmat(:,:,6)=SUITFAC;
+%             SLPROB(:,:,TSTART)=mean(facmat,3);
+            SLPROB(:,:,TSTART)=mean(facmat(:,:,1:5),3);
 
 %             SLPROB(:,:,TSTART)=max(min(max(facmat,[],3)+DIST./max(max(DIST)),1),0);   % dynamic probability of seisure and loss at edges
             SLPROB(:,:,TSTART+1)=SLPROB(:,:,TSTART);
@@ -752,7 +773,6 @@ for erun=1:ERUNS
         %%% Set-up figure for trafficking movie
         MOV=zeros(nnodes,nnodes,TMAX);
         
-%         rng(savedState)
         
         %%
         %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -767,6 +787,7 @@ for erun=1:ERUNS
             %     slevent(:,:,t)=(SLPROB(:,:,t) > rndslevents);
             %%% Specified number of events, selection of highest probability nodes (in addition to p=1)
             %     newslevents=ceil(slcpcty(t)*rand(1));
+            %%
             islevent=[];
             subslevent=slevent(:,:,t);
             subsuccess=slsuccess(:,:,t-1);
@@ -886,7 +907,14 @@ for erun=1:ERUNS
                     %              totstock,totcpcty,tslrisk);
                     [neipick,neivalue,valuex]=calc_neival(c_trans,p_sl,...
                         y_node,q_node,lccf,rtpref,tslrisk,dtonei,profmdl,cutflag);
+                    
+                    % With top-down route optimization
                     inei=inei(neipick);
+                    
+%                     % Just bottom-up route optimization
+%                     expmax=expandmax(erun);
+%                     neipick=neipick(1:min(expmax,length(neipick)));
+%                     inei=inei(neipick);
 
                     % weight according to salience value fuction
                     if isempty(find(valuex <= 0,1)) == 0
@@ -1147,17 +1175,17 @@ for erun=1:ERUNS
                 if isempty(find(supplyfit ~= 0,1)) == 1 && isempty(find(losstolval ~= 0,1)) == 1
                     supplyfit=0.1;
                 end
+                
+%                 %call top-down route optimization
                 expmax=expandmax(erun);
-                %call top-down route optimization
-                %     newroutepref=optimizeroute(nnodes,subflow,supplyfit,activenodes,...
-                %         subroutepref,EdgeTable,SLRISK,ADDVAL,CTRANS,losstolval);
-%                 if t >=50 && supplyfit > 0 && supplyfit <= losstolval
-%                     keyboard
-%                 end
                 newroutepref=optimizeroute_multidto(dtorefvec,subflow,supplyfit,expmax,...
                     subroutepref,dtoEdgeTable,dtoSLRISK,dtoADDVAL,dtoCTRANS,losstolval,dtoslsuc);
+
+%                 % Bottom-up route optimization
+%                 newroutepref=ADJ(dtorefvec,dtorefvec);
                 
                 routepref(dtorefvec,dtorefvec,t+1)=newroutepref;
+
                 if isempty(find(routepref(1,dtorefvec(1:length(dtorefvec)-1),t+1),1)) ==1
                     display('check route optimization for each dto')
                     keyboard
@@ -1211,6 +1239,9 @@ for erun=1:ERUNS
             STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step
             NodeTable.Stock(1)=stock_0;
             NodeTable.Stock(nnodes)=0;
+            
+            % Output tables for flows(t) and interdiction prob(t-1)
+            [Tflow,Tintrd]=intrd_tables(FLOW,SLPROB,EdgeTable,t);
         end
         
         nactnodes=zeros(ndto,TMAX);
@@ -1254,12 +1285,12 @@ for erun=1:ERUNS
         end
         t_firstmov(nnodes)=find(STOCK(nnodes,:)>0,1,'first');
         
-%         savefname=sprintf('supplychain_results_011718_%d_%d',erun,mrun);
-%         parsave_illicit_supplychain(savefname,EdgeTable,NodeTable,MOV,FLOW,OUTFLOW,...
-%             TOTCPTL,DTOBDGT,slsuccess,activeroute,STOCK,slperevent,slval,...
-%             nactnodes,sltot,t_firstmov);
+        savefname=sprintf('supplychain_results_021618_%d_%d',erun,mrun);
+        parsave_illicit_supplychain(savefname,EdgeTable,NodeTable,MOV,FLOW,OUTFLOW,...
+            CTRANS,TOTCPTL,DTOBDGT,slsuccess,activeroute,STOCK,RISKPREM,slperevent,slval,...
+            nactnodes,sltot,t_firstmov,PRICE);
         
     end
 end
 toc
-% delete(poolobj)
+delete(poolobj)

@@ -15,7 +15,7 @@ riskmltplr=2;     %baseline; risk multiplier for risk premium, Caulkins et al. (
 % riskcomp=12000*ones(1,ERUNS);   %baseline; risk compensation factor ofr overland transport, Caulkins et al. (1993)
 
 startstock=200;       %baseline; stock at production node
-endstock=150000;
+endstock=111500;
 
 sl_learn=parmset(p,3,g_id);     %baseline; rate of interdiction learning
 rt_learn=parmset(p,4,g_id);     %baseline; rate of network agent learning

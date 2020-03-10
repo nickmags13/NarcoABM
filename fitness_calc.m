@@ -3,10 +3,14 @@ function [t_firstmovcorr,t_firstmovpval,deptmovcorr,deptmovpval]=...
 
 
 %calculate correlation of first movement
-load('tmovref.mat')
-[tmov_rho,tmov_pval]=corr(tfirstmov,tmov);
+load('tmovref_156.mat')
+
+% tmov=120-linspace(1,120,length(tfirstmov));
+[tmov_rho,tmov_pval]=corr(tfirstmov,tmov','rows','complete');
+tcheck=(max(tfirstmov) >= 100);
 t_firstmovcorr=tmov_rho;
-t_firstmovpval=tmov_pval;
+% t_firstmovcorr=tmov_rho*tcheck;
+t_firstmovpval=tmov_pval+(1-tcheck);
 
 deptrefvecs{1}=[5500 6300 2250 3450 1050 1375 625 625 1600];    %Peten, 2005-2013
 deptrefvecs{2}=[29750 26812 37034 49043 41399 41535];   %Darien, 2009-2014
@@ -22,7 +26,10 @@ fl_order=[1 2 4 5 6 7];
 deptmovcorr=zeros(1,length(fl_order));
 deptmovpval=zeros(1,length(fl_order));
 for gg=1:6
-    if gg == 3
+    if gg == 2
+        [dept_rho,dept_pval]=corr(deptflowsts(fl_order(gg),tspan(gg,1):...
+            tspan(gg,2))'+deptflowsts(3,tspan(gg,1):tspan(gg,2))',deptrefvecs{gg}');
+    elseif gg == 3
         [dept_rho,dept_pval]=corr(cntryflowsts(fl_order(gg),tspan(gg,1):...
             tspan(gg,2))',deptrefvecs{gg}');
     else

@@ -1,6 +1,8 @@
 %%%%%%%%%%%%% Get Results %%%%%%%%%%%%%%%%%%%%
 
-cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_full_011618
+% cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_full_020618
+% cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_null_013018
+cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\model_results\SupplyChain_full_021618
 fnames=dir;
 fnamescell=struct2cell(fnames);
 h=strncmp('supplychain_results_',fnamescell(1,:),20);
@@ -33,22 +35,34 @@ SLPEREVENT=zeros(MRUNS*ERUNS,TMAX,ndto);
 VALPEREVENT=zeros(MRUNS*ERUNS,TMAX,ndto);
 dtoBDGT=cell(MRUNS*ERUNS,1,ndto);
 TMOV=cell(MRUNS*ERUNS,1);
-
+DEPTRPREM=cell(7,length(hind));
+CNTRYRPREM=cell(7,length(hind));
+DEPTTCOST=cell(7,length(hind));
+CNTRYTCOST=cell(7,length(hind));
+DEPTNODEPRICE=cell(7,length(hind));
+CNTRYNODEPRICE=cell(7,length(hind));
 SENDFLOW=zeros(NNODES,TMAX,MRUNS*ERUNS);
 SLVOL=zeros(NNODES,TMAX,MRUNS*ERUNS);
 INTRATE=zeros(NNODES,TMAX,MRUNS*ERUNS);
 DEPTFLOWS=cell(7,length(hind));
 CNTRYFLOWS=cell(7,length(hind));
+DLVR=zeros(MRUNS*ERUNS,TMAX);
+ACTCHECK=zeros(1,MRUNS*ERUNS);
+PRMYMV=zeros(1,MRUNS*ERUNS);
+
+edgecompare=cell(1,length(hind));
     
 for mr=1:length(hind)   % MRUNS*EXPTRUNS
-    h=strcmp(sprintf('supplychain_results_011618_%d_%d.mat',...
+    h=strcmp(sprintf('supplychain_results_020618_%d_%d.mat',...
         batchind(mr,1),batchind(mr,2)),fnamescell(1,:));
+%     h=strcmp(sprintf('supplychain_results_013018_%d_%d.mat',...
+%         batchind(mr,1),batchind(mr,2)),fnamescell(1,:));
     filename=fnamescell{1,h};
     load(filename)
     
     % %%% Locate Department statistics
-    cntrynames={'Guatemala','Panama','Panama','Costa Rica','Honduras','Panama','Nicaragua'};
-    deptnames={'Pet','Dari','Ember','Puntarenas','Grac','Col','Atlantico Norte'};
+    cntrynames={'Guatemala','Panama','Panama','Costa Rica','Honduras','Panama','Nicaragua','Panama','Nicaragua','Guatemala','Honduras'};
+    deptnames={'Pet','Dari','Ember','Puntarenas','Grac','Col','Atlantico Norte','Veraguas','Atlantico Sur','Izabal','Col'};
     cntryind=zeros(length(CAattr1),length(deptnames));
     deptind=zeros(length(CAattr1),length(deptnames));
     hind=zeros(1,length(deptnames));
@@ -63,6 +77,14 @@ for mr=1:length(hind)   % MRUNS*EXPTRUNS
     deptslvol_ts=zeros(length(deptnames),TMAX/12);
     deptintrt=zeros(length(deptnames),TMAX);
     deptintrt_ts=zeros(length(deptnames),TMAX/12);
+%     deptriskprem=zeros(length(deptnames),TMAX);
+%     deptriskprem_ts=zeros(length(deptnames),TMAX/12);
+%     cntryriskprem=zeros(length(deptnames),TMAX);
+%     cntryriskprem_ts=zeros(length(deptnames),TMAX/12);
+%     deptctrans=zeros(length(deptnames),TMAX);
+%     deptctrans_ts=zeros(length(deptnames),TMAX/12);
+%     cntryctrans=zeros(length(deptnames),TMAX);
+%     cntryctrans_ts=zeros(length(deptnames),TMAX/12);
     tsind=ceil((1:TMAX)./12);
     for jj=1:length(cntrynames)
         for ii=1:length(CAattr1)
@@ -77,6 +99,16 @@ for mr=1:length(hind)   % MRUNS*EXPTRUNS
         cslctnodes(jj)=mat2cell(cnodeids,length(cnodeids),1);
         deptflows(jj,:)=sum(OUTFLOW(slctnodes{jj},:),1);    %single run code
         cntryflows(jj,:)=sum(OUTFLOW(cslctnodes{jj},:),1);
+%         RISKPREM(RISKPREM == 0)=NaN;
+%         deptriskprem(jj,:)=mean(reshape(nanmean(RISKPREM(:,slctnodes{jj},1:TMAX),1),...
+%             length(slctnodes{jj}),TMAX),1);
+%         cntryriskprem(jj,:)=mean(reshape(nanmean(RISKPREM(:,cslctnodes{jj},1:TMAX),1),...
+%             length(cslctnodes{jj}),TMAX),1);
+%         CTRANS(CTRANS == 0)=NaN;
+%         deptctrans(jj,:)=mean(reshape(nanmean(CTRANS(:,slctnodes{jj},1:TMAX),1),...
+%             length(slctnodes{jj}),TMAX),1);
+%         cntryctrans(jj,:)=mean(reshape(nanmean(CTRANS(:,cslctnodes{jj},1:TMAX),1),...
+%             length(cslctnodes{jj}),TMAX),1);
         test=reshape(sum(slsuccess,1),NNODES,TMAX); %single run code
         deptslvol(jj,:)=sum(test(slctnodes{jj},:),1);  %single run code
         %     deptflows(jj,:)=sum(mediandlvr(slctnodes{jj},:),1);
@@ -85,11 +117,19 @@ for mr=1:length(hind)   % MRUNS*EXPTRUNS
         for ts=1:TMAX/12
             deptflows_ts(jj,ts)=sum(deptflows(jj,tsind==ts));
             cntryflows_ts(jj,ts)=sum(cntryflows(jj,tsind==ts));
+%             deptriskprem_ts(jj,ts)=mean(deptriskprem(jj,tsind==ts));
+%             cntryriskprem_ts(jj,ts)=mean(cntryriskprem(jj,tsind==ts));
+%             deptctrans_ts(jj,ts)=mean(deptctrans(jj,tsind==ts));
+%             cntryctrans_ts(jj,ts)=mean(cntryctrans(jj,tsind==ts));
             deptslvol_ts(jj,ts)=sum(deptslvol(jj,tsind==ts));
             deptintrt_ts(jj,:)=deptslvol_ts(jj,:)./(deptslvol_ts(jj,:)+deptflows_ts(jj,:));
         end
         DEPTFLOWS(jj,mr)=mat2cell(deptflows_ts(jj,:),1,ts);
         CNTRYFLOWS(jj,mr)=mat2cell(cntryflows_ts(jj,:),1,ts);
+%         DEPTRPREM(jj,mr)=mat2cell(deptriskprem_ts(jj,:),1,ts);
+%         CNTRYRPREM(jj,mr)=mat2cell(cntryriskprem_ts(jj,:),1,ts);
+%         DEPTTCOST(jj,mr)=mat2cell(deptctrans_ts(jj,:),1,ts);
+%         CNTRYTCOST(jj,mr)=mat2cell(cntryctrans_ts(jj,:),1,ts);
     end
     
     SENDFLOW(:,:,mr)=OUTFLOW;
@@ -106,6 +146,12 @@ for mr=1:length(hind)   % MRUNS*EXPTRUNS
     dtoBDGT(mr,1,2)=mat2cell(DTOBDGT(2,:),1,TMAX);
     TMOV(mr,1)=mat2cell(t_firstmov',1,length(t_firstmov));
     
+    edgecompare{mr}=EdgeTable.EndNodes;
+    
+    DLVR(mr,:)=SENDFLOW(1,:,mr)-sum(SLPEREVENT(mr,:,:),3);
+    ACTCHECK(mr)=sum(sum(SENDFLOW(:,:,mr),2) > 0);
+    PRMYMV(mr)=length(unique(cat(1,activeroute{1,:})));
+
     clear nactnodes slperevent
 end
 
@@ -133,6 +179,8 @@ maxsl=zeros(ndto,TMAX,ERUNS);
 cvsl=zeros(ndto,TMAX,ERUNS);
 maxdto=zeros(length(hind),2);
 meanfirstmov=zeros(ERUNS,NNODES);
+maxflows=zeros(NNODES,ERUNS);
+maxyear=zeros(NNODES,ERUNS);
 
 medianslvol=zeros(NNODES,TMAX,ERUNS);
 meanslvol=zeros(NNODES,TMAX,ERUNS);
@@ -224,129 +272,372 @@ deptrefvecs{3}=[770 1275 3450 5000 23450 23779 92661 159368 114905 92472 ...
     73836 191770 209586 269160];    %Costa Rica, 2001-2014
 deptrefvecs{4}=[3930 12800 4463 6906 63395 109875 219354 214087 107219 55268]; %gracias a dios, 2005-2014
 % deptrefvecs{4}=[1550 12800 6075 7872 22500 67802 83100 66305 64756 29033];
-deptrefvecs{5}=[560 6766 7045 17690 9850 3715 6100 25258];  %colon, 2006-2013
+deptrefvecs{5}=[560 6766 7045 17690 9850 3715 6100 25258];  %colon,Pan 2006-2013
 deptrefvecs{6}=[5575 775 32750 37650 48038 9400 9117 3970]; %atlantico norte, 2007-2014
-cntryrefvecs{1}=[20776 16324 56392 23744 23002 39326 65296 59360 78652 146916 102396 76426 81620 152852]; %Guatemal, 2001-2014
+deptrefvecs{7}=[3880 598 13448 1363 1575 10367 20663 38886 35108 36151 20555 3297]; %atlantico sur, 2003-2014
+deptrefvec{8}=[2549 500 3400 2423.333333 1446.666667 470 1825 3180 20750 1150 884 618]; %Izabal, 2003-2014
+deptrefvecs{9}=[2607 1328.5 50 2580 19250 32350 25000 6980 11440]; %colon, Honduras, 2006-2014
 
+
+% cntryrefvecs{1}=[20776 16324 56392 23744 23002 39326 65296 59360 78652 ...
+%     146916 102396 76426 81620 152852]; %Guatemal, 2001-2014
+% cntryrefvecs{2}=[109815 49916 114806 104823 109815 84857 94840 294503 ...
+%     324453 1163038 978349 1227928 1187996 401060 276749]; %Panama
+% cntryrefvecs{3}=[770 1275 3450 5000 23450 23779 92661 159368 114905 92472 ...
+%     73836 191770 209586 269160];    %Costa Rica, 2001-2014
+% cntryrefvecs{4}=[21270 12762 18080 30842 54239 61684 60620 42541 94653 ...
+%     154210 163781 246735 186115 166523 140329]; %Honduras
+% cntryrefvecs{5}=[1200 4000 4714 9750 20905 8870 5260 25175 46327 13200 ...
+%     14717 5025 13143 16516 6127]; %Nicaragua
+
+%%% Minimum flows from Zoe's numbers
+cntryrefvecs{1}=[8518 23850.4 18739.6 64736.8 27257.6 26405.8 45145.4 ...
+    74958.4 68144 90290.8 168656.4 117548.4 87735.4 93698 175470.8]; %Guatemal, 2001-2014
+cntryrefvecs{2}=[18739.6 8518 19591.4 17887.8 18739.6 14480.6 16184.2 ...
+    50256.2 55367 198469.4 166952.8 209542.8 202728.4 449750.4 386717.2]; %Panama
+cntryrefvecs{3}=[1703.6 1703.6 1703.6 1703.6 2555.4 7666.2 9369.8 42590 ...
+    80069.2 70699.4 81772.8 68144 137139.8 160138.4 256391.8];    %Costa Rica, 2001-2014
+cntryrefvecs{4}=[17036 10221.6 14480.6 24702.2 43441.8 49404.4 48552.6 ...
+    34072 75810.2 123511 131177.2 197617.6 149065 127770 117548.4]; %Honduras
+cntryrefvecs{5}=[851.8 2555.4 4259 6814.4 12777 5110.8 3407.2 10221.6 ...
+    20443.2 8518 9369.8 4259 8518 10221.6 6814.4]; %Nicaragua
+
+%%% Load null model flow results
+% load noflows
+    
 % Peten Flows
 h10=figure;
 set(h10,'color','white')
 labels={'05','06','07','08','09','10','11','12','13'};
-subflows=cat(1,DEPTFLOWS{1,:});
+% subflows=cat(1,DEPTFLOWS{1,:});
+subflows=cat(1,NOFLOWS{1,:});
+% subflows=cat(1,CNTRYFLOWS{1,:});
+% labels={'01','02','03','04','05','06','07','08','09','10','11','12','13','14'};
 p1=subflows(:,5:13);
+% p1=subflows(:,1:14);
 p2=deptrefvecs{1};
+% p2=cntryrefvecs{1};
 line1=parallelcoords(p1,'labels',labels,'quantile',0.25);
 line1(1).LineWidth=2;
 line1(2).LineWidth=1.5;
 line1(3).LineWidth=1.5;
+xlim([1 9])
+% xlim([1 14])
 hold on
 line2=parallelcoords(p2);
 hold off
 line2.Color='red';
 line2.LineWidth=2;
+xpoints=line1(2).XData;
+lower=line1(2).YData;
+upper=line1(3).YData;
+color=[0.5 0.5 1];
+[fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+% xpoints=line1_1(2).XData;
+% lower=line1_1(2).YData;
+% upper=line1_1(3).YData;
+% color=[0.5 0.5 0.5];
+% [fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+
 lgd=legend([line1(1) line2],'Model Output','CCDB Dept. Data','Location',...
     'NorthWest');
 lgd.FontSize=14;
 set(gca,'FontSize',12)
 ylabel('Cocaine Shipment Volume(kg)')
 xlabel('Year')
-saveas(h10,'Flows_Peten_coords','png')
+saveas(h10,'Flows_Peten_coords','tif')
 
 % Darien Flows
 h10_1=figure;
 set(h10_1,'color','white')
 labels={'09','10','11','12','13','14'};
-subflows=cat(1,DEPTFLOWS{2,:});
+% subflows=cat(1,DEPTFLOWS{2,:});
+% subflows=cat(1,DEPTFLOWS{2,:})+cat(1,DEPTFLOWS{3,:});
+subflows=cat(1,NOFLOWS{2,:})+cat(1,NOFLOWS{3,:});
+% subflows=cat(1,CNTRYFLOWS{2,:});
+% subflows=cat(1,NOCNTRYFLOWS{2,:});
+% labels={'01','02','03','04','05','06','07','08','09','10','11','12','13','14'};
 p1=subflows(:,9:14);
+% p1=subflows(:,1:14);
 p2=deptrefvecs{2};
+% p2=cntryrefvecs{2};
 line1=parallelcoords(p1,'labels',labels,'quantile',0.25);
 line1(1).LineWidth=2;
 line1(2).LineWidth=1.5;
 line1(3).LineWidth=1.5;
+xlim([1 6])
+% xlim([1 14])
 hold on
 line2=parallelcoords(p2);
 hold off
 line2.Color='red';
 line2.LineWidth=2;
+xpoints=line1(2).XData;
+lower=line1(2).YData;
+upper=line1(3).YData;
+color=[0.5 0.5 1];
+[fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+% xpoints=line1_1(2).XData;
+% lower=line1_1(2).YData;
+% upper=line1_1(3).YData;
+% color=[0.5 0.5 1];
+% [fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+
 lgd=legend([line1(1) line2],'Model Output','CCDB Dept. Data','Location',...
     'NorthWest');
 lgd.FontSize=12;
 set(gca,'FontSize',14)
 ylabel('Cocaine Shipment Volume(kg)')
 xlabel('Year')
-saveas(h10_1,'Flows_Darien_coords','png')
+saveas(h10_1,'Flows_Darien_coords','tif')
 
 %Costa Rica Flows
 h10_2=figure;
 set(h10_2,'color','white')
 labels={'01','02','03','04','05','06','07','08','09','10','11','12','13','14'};
-subflows=cat(1,CNTRYFLOWS{4,:});
+% subflows=cat(1,CNTRYFLOWS{4,:});
+subflows=cat(1,NOCNTRYFLOWS{4,:});
+% labels={'07','08','09','10','11','12','13','14'};
+% subflows=cat(1,DEPTFLOWS{4,:});
 p1=subflows(:,1:14);
 p2=deptrefvecs{3};
 line1=parallelcoords(p1,'labels',labels,'quantile',0.25);
 line1(1).LineWidth=2;
 line1(2).LineWidth=1.5;
 line1(3).LineWidth=1.5;
+xlim([1 14])
 hold on
 line2=parallelcoords(p2);
 hold off
 line2.Color='red';
 line2.LineWidth=2;
+xpoints=line1(2).XData;
+lower=line1(2).YData;
+upper=line1(3).YData;
+color=[0.5 0.5 1];
+[fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+xpoints=line1_1(2).XData;
+lower=line1_1(2).YData;
+upper=line1_1(3).YData;
+color=[0.5 0.5 0.5];
+[fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+
 lgd=legend([line1(1) line2],'Model Output','CCDB Dept. Data','Location',...
     'NorthWest');
 lgd.FontSize=12;
 set(gca,'FontSize',14)
 ylabel('Cocaine Shipment Volume(kg)')
 xlabel('Year')
-saveas(h10_2,'Flows_CostaRica_coords','png')
+saveas(h10_2,'Flows_CostaRica_coords','tif')
 
 % Gracias Flows
 h10_3=figure;
 set(h10_3,'color','white')
 labels={'05','06','07','08','09','10','11','12','13','14'};
 subflows=cat(1,DEPTFLOWS{5,:});
+% subflows=cat(1,NOFLOWS{5,:});
+% labels={'01','02','03','04','05','06','07','08','09','10','11','12','13','14'};
+% subflows=cat(1,CNTRYFLOWS{5,:});
+% subflows=cat(1,NOCNTRYFLOWS{5,:});
 p1=subflows(:,5:14);
+% p1=subflows(:,1:14);
 p2=deptrefvecs{4};
+% p2=cntryrefvecs{4};
 line1=parallelcoords(p1,'labels',labels,'quantile',0.25);
 line1(1).LineWidth=2;
 line1(2).LineWidth=1.5;
 line1(3).LineWidth=1.5;
+xlim([1 10])
+% xlim([1 14])
 hold on
 line2=parallelcoords(p2);
 hold off
 line2.Color='red';
 line2.LineWidth=2;
+xpoints=line1(2).XData;
+lower=line1(2).YData;
+upper=line1(3).YData;
+color=[0.5 0.5 1];
+[fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+% xpoints=line1_1(2).XData;
+% lower=line1_1(2).YData;
+% upper=line1_1(3).YData;
+% color=[0.5 0.5 1];
+% [fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+
 lgd=legend([line1(1) line2],'Model Output','CCDB Dept. Data','Location',...
     'NorthWest');
 lgd.FontSize=12;
 set(gca,'FontSize',14)
 ylabel('Cocaine Shipment Volume(kg)')
 xlabel('Year')
-saveas(h10_3,'Flows_Gracias_coords','png')
+saveas(h10_3,'Flows_Gracias_coords','tif')
+
+% Colon, Panama Flows
+h10_5=figure;
+set(h10_5,'color','white')
+labels={'06','07','08','09','10','11','12','13'};
+subflows=cat(1,DEPTFLOWS{6,:});
+% subflows=cat(1,NOFLOWS{6,:});
+p1=subflows(:,6:13);
+p2=deptrefvecs{5};
+line1=parallelcoords(p1,'labels',labels,'quantile',0.25);
+line1(1).LineWidth=2;
+line1(2).LineWidth=1.5;
+line1(3).LineWidth=1.5;
+xlim([1 8])
+hold on
+line2=parallelcoords(p2);
+hold off
+line2.Color='red';
+line2.LineWidth=2;
+xpoints=line1(2).XData;
+lower=line1(2).YData;
+upper=line1(3).YData;
+color=[0.5 0.5 1];
+[fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+% xpoints=line1_1(2).XData;
+% lower=line1_1(2).YData;
+% upper=line1_1(3).YData;
+% color=[0.5 0.5 1];
+% [fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+
+lgd=legend([line1(1) line2],'Model Output','CCDB Dept. Data','Location',...
+    'NorthWest');
+lgd.FontSize=12;
+set(gca,'FontSize',14)
+ylabel('Cocaine Shipment Volume(kg)')
+xlabel('Year')
+saveas(h10_5,'Flows_Colon_coords','tif')
 
 % Norte Flows
 h10_4=figure;
 set(h10_4,'color','white')
 labels={'07','08','09','10','11','12','13','14'};
-subflows=cat(1,DEPTFLOWS{7,:});
+% subflows=cat(1,DEPTFLOWS{7,:});
+subflows=cat(1,NOFLOWS{7,:});
+% labels={'01','02','03','04','05','06','07','08','09','10','11','12','13','14'};
+% subflows=cat(1,CNTRYFLOWS{7,:});
+% subflows=cat(1,NOCNTRYFLOWS{7,:});
 p1=subflows(:,7:14);
+% p1=subflows(:,1:14);
 p2=deptrefvecs{6};
+% p2=cntryrefvecs{5};
 line1=parallelcoords(p1,'labels',labels,'quantile',0.25);
 line1(1).LineWidth=2;
 line1(2).LineWidth=1.5;
 line1(3).LineWidth=1.5;
+xlim([1 8])
+xpoints=line1(2).XData;
+lower=line1(2).YData;
+upper=line1(3).YData;
+color=[0.5 0.5 1];
+[fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+% xlim([1 14])
 hold on
 line2=parallelcoords(p2);
 hold off
 line2.Color='red';
 line2.LineWidth=2;
+
+xpoints=line1_1(2).XData;
+lower=line1_1(2).YData;
+upper=line1_1(3).YData;
+color=[0.5 0.5 0.5];
+[fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+
 lgd=legend([line1(1) line2],'Model Output','CCDB Dept. Data','Location',...
     'NorthWest');
 lgd.FontSize=12;
 set(gca,'FontSize',14)
 ylabel('Cocaine Shipment Volume(kg)')
 xlabel('Year')
-saveas(h10_4,'Flows_Norte_coords','png')
+saveas(h10_4,'Flows_Norte_coords','tif')
+
+% Atlantico Sur Flows
+h10_10=figure;
+set(h10_10,'color','white')
+labels={'03','04','05','06','07','08','09','10','11','12','13','14'};
+subflows=cat(1,DEPTFLOWS{9,:});
+% subflows=cat(1,NOFLOWS{9,:});
+% subflows=cat(1,CNTRYFLOWS{1,:});
+% labels={'01','02','03','04','05','06','07','08','09','10','11','12','13','14'};
+p1=subflows(:,3:14);
+% p1=subflows(:,1:14);
+p2=deptrefvecs{7};
+% p2=cntryrefvecs{1};
+line1=parallelcoords(p1,'labels',labels,'quantile',0.25);
+line1(1).LineWidth=2;
+line1(2).LineWidth=1.5;
+line1(3).LineWidth=1.5;
+xlim([1 12])
+% xlim([1 14])
+hold on
+line2=parallelcoords(p2);
+hold off
+line2.Color='red';
+line2.LineWidth=2;
+xpoints=line1(2).XData;
+lower=line1(2).YData;
+upper=line1(3).YData;
+color=[0.5 0.5 1];
+[fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+% xpoints=line1_1(2).XData;
+% lower=line1_1(2).YData;
+% upper=line1_1(3).YData;
+% color=[0.5 0.5 0.5];
+% [fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+
+lgd=legend([line1(1) line2],'Model Output','CCDB Dept. Data','Location',...
+    'NorthWest');
+lgd.FontSize=14;
+set(gca,'FontSize',12)
+ylabel('Cocaine Shipment Volume(kg)')
+xlabel('Year')
+saveas(h10_10,'Flows_Sur_coords','tif')
+
+% Colon, Honduras Flows
+h10_11=figure;
+set(h10_11,'color','white')
+labels={'06','07','08','09','10','11','12','13','14'};
+% subflows=cat(1,DEPTFLOWS{11,:});
+subflows=cat(1,NOFLOWS{11,:});
+% subflows=cat(1,CNTRYFLOWS{1,:});
+% labels={'01','02','03','04','05','06','07','08','09','10','11','12','13','14'};
+p1=subflows(:,6:14);
+% p1=subflows(:,1:14);
+p2=deptrefvecs{9};
+% p2=cntryrefvecs{1};
+line1=parallelcoords(p1,'labels',labels,'quantile',0.25);
+line1(1).LineWidth=2;
+line1(2).LineWidth=1.5;
+line1(3).LineWidth=1.5;
+xlim([1 9])
+% xlim([1 14])
+hold on
+line2=parallelcoords(p2);
+hold off
+line2.Color='red';
+line2.LineWidth=2;
+xpoints=line1(2).XData;
+lower=line1(2).YData;
+upper=line1(3).YData;
+color=[0.5 0.5 1];
+[fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+% xpoints=line1_1(2).XData;
+% lower=line1_1(2).YData;
+% upper=line1_1(3).YData;
+% color=[0.5 0.5 0.5];
+% [fillhandle,msg]=jbfill(xpoints,upper,lower,color);
+
+lgd=legend([line1(1) line2],'Model Output','CCDB Dept. Data','Location',...
+    'NorthWest');
+lgd.FontSize=14;
+set(gca,'FontSize',12)
+ylabel('Cocaine Shipment Volume(kg)')
+xlabel('Year')
+saveas(h10_11,'Flows_Colon_Hon_coords','tif')
+
 
 % %%% Single run
 % % % h2_1=figure;
@@ -381,7 +672,7 @@ valkg=slval./slperevent;
 valkg(isnan(valkg))=0;
 [hAx,hl1,hl2]=plotyy(1:TMAX,nactnodes(1,:),1:TMAX,valkg(1,:));
 ylabel(hAx(1),'Number of Routes')
-ylabel(hAx(2),'Average S&L Value ($/kilo)')
+ylabel(hAx(2),'S&L Value ($/kilo)')
 xlim(hAx(1),[1 TMAX])
 xlim(hAx(2),[1 TMAX])
 legend('Active Routes','S&L VAlue','Orientation','vertical','Location','NorthWest')
@@ -391,21 +682,23 @@ subplot(2,1,2)
 % ylabel(hAx2(2),'Average S&L Volume (kg)')
 [hAx2,h21,h22]=plotyy(1:TMAX,nactnodes(2,:),1:TMAX,valkg(2,:));
 ylabel(hAx2(1),'Number of Routes')
-ylabel(hAx2(2),'Average S&L Value ($/kilo)')
+ylabel(hAx2(2),'S&L Value ($/kilo)')
 xlim(hAx2(1),[1 TMAX])
 xlim(hAx2(2),[1 TMAX])
 xlabel('Month')
 % 
-% h3=figure;
-% set(h3,'color','white','Visible','off')
+h3=figure;
+set(h3,'color','white')
 geoshow(CAadm0,'FaceColor',[1 1 1])
+colormap(gray)
 hold on
 for n=2:nnodes-1
     if t_firstmov(n) == 0
         continue
     else
-    plot(nodelon(n),nodelat(n),'o','MarkerSize',5,'MarkerEdgeColor','k','MarkerFaceColor',...
-        [1-t_firstmov(n)/max(t_firstmov) t_firstmov(n)/max(t_firstmov) 0])
+%     plot(nodelon(n),nodelat(n),'o','MarkerSize',5,'MarkerEdgeColor','k','MarkerFaceColor',...
+%         [1-t_firstmov(n)/max(t_firstmov) t_firstmov(n)/max(t_firstmov) 0])
+    plot(nodelon(n),nodelat(n),'o','MarkerSize',5,'MarkerEdgeColor','k')
     end
 end
 %red is early, green is late
@@ -424,18 +717,47 @@ for n=2:NNODES-1
     if t_firstmov(n) == 0
         continue
     else
+%     plot(NodeTable.Lon(n),NodeTable.Lat(n),'o','MarkerSize',5,'MarkerEdgeColor','k','MarkerFaceColor',...
+%         [1-t_firstmov(n)/max(t_firstmov) t_firstmov(n)/max(t_firstmov) 0])
     plot(NodeTable.Lon(n),NodeTable.Lat(n),'o','MarkerSize',5,'MarkerEdgeColor','k','MarkerFaceColor',...
-        [1-t_firstmov(n)/max(t_firstmov) t_firstmov(n)/max(t_firstmov) 0])
+        [0 1-t_firstmov(n)/max(t_firstmov) 0])
     end
 end
 title('Average First Time Step of Cocaine Movements')
 xlabel('Longitude')
 ylabel('Latitude')
 
+
+%%% Create network map from results file
+NNODES=size(activeroute,1);
+trgtyr=116;
+h13=figure;
+set(h13,'color','white')
+geoshow(CAadm0,'FaceColor',[1 1 1])
+hold on
+plot(NodeTable.Lon,NodeTable.Lat,'o','MarkerSize',5,...
+        'MarkerEdgeColor','k','MarkerFaceColor',[0.5 0.5 0.5])
+for n=1:NNODES-1
+    if isempty(activeroute{n,trgtyr})==1
+        continue
+    else
+    plot(NodeTable.Lon(n),NodeTable.Lat(n),'o','MarkerSize',5,...
+        'MarkerEdgeColor','k','MarkerFaceColor','r')
+    actrte=activeroute{n,trgtyr};
+    for k=1:length(actrte)
+        plot([NodeTable.Lon(n) NodeTable.Lon(actrte(k))],...
+            [NodeTable.Lat(n) NodeTable.Lat(actrte(k))],'-k','LineWidth',0.5)
+    end
+    end
+end
+title('Trafficking Nodes and Active Routes')
+saveas(h13,'NetworkMap','png')
+
+
 % 
 % %%% Locate Department statistics
-cntrynames={'Guatemala','Panama','Panama','Costa Rica','Honduras','Panama','Nicaragua'};
-deptnames={'Pet','Dari','Ember','Puntarenas','Grac','Col','Atlantico Norte'};
+cntrynames={'Guatemala','Panama','Panama','Costa Rica','Honduras','Panama','Nicaragua','Panama'};
+deptnames={'Pet','Dari','Ember','Puntarenas','Grac','Col','Atlantico Norte','Veraguas'};
 cntryind=zeros(length(CAattr1),length(deptnames));
 deptind=zeros(length(CAattr1),length(deptnames));
 hind=zeros(1,length(deptnames));
@@ -569,16 +891,94 @@ for erun=1:ERUNS
     xlabel('Month')
     saveas(h2_1,sprintf('MedianVolume_%d',erun),'png')
 end
-
+%%% Median Volume
 mediansl_ts=reshape(sum(mediansl,1),ERUNS,TMAX);
 medianrtes_ts=reshape(sum(medianrtes,1),ERUNS,TMAX);
 h1=figure;
-set(h1,'color','white','Visible','off')
-boxplot(reshape(median(totslevents,2),MRUNS,ERUNS),1:ERUNS,'color','r','labels',...
+set(h1,'color','white')
+set(gca,'FontSize',14)
+boxplot(reshape(median(totslevents,2),MRUNS,ERUNS),1:ERUNS,'color','k','labels',...
     {'Low','Low Mod.','Mod.','High Mod.','High'},'extrememode','compress')
 xlabel('Interdiction Capacity')
 ylabel('Median Volume Seized (kg)')
-saveas(h1,'Annual_SL_varcptcy','png')
+saveas(h1,'MdnVol_SL_varcptcy','tif')
+
+h1_1=figure;
+set(h1_1,'color','white')
+set(gca,'FontSize',14)
+boxplot(reshape(median(totactrtes,2),MRUNS,ERUNS),1:ERUNS,'color','k','labels',...
+    {'Low','Low Mod.','Mod.','High Mod.','High'})
+xlabel('Interdiction Capacity')
+ylabel('Median Annual Number of Active Routes')
+saveas(h1_1,'Annual_Routes_varcpcty','tif')
+
+%%% Total Volume
+h1_3=figure;
+set(h1_3,'color','white')
+set(gca,'FontSize',14)
+boxplot(reshape(sum(totslevents,2),MRUNS,ERUNS),1:ERUNS,'color','k','labels',...
+    {'Low','Low Mod.','Mod.','High Mod.','High'},'extrememode','compress')
+xlabel('Interdiction Capacity')
+ylabel('Total Volume Seized (kg)')
+saveas(h1_3,'TotVol_SL_varcptcy','tif')
+
+%%% Median Value
+h1_4=figure;
+set(h1_4,'color','white')
+set(gca,'FontSize',14)
+boxplot(reshape(median(totvalevents,2),MRUNS,ERUNS),1:ERUNS,'color','k','labels',...
+    {'Low','Low Mod.','Mod.','High Mod.','High'},'extrememode','compress')
+xlabel('Interdiction Capacity')
+ylabel('Median Value Seized ($/kg)')
+saveas(h1_4,'MdnVal_SL_varcptcy','tif')
+
+%%% Total Value
+h1_5=figure;
+set(h1_5,'color','white')
+set(gca,'FontSize',14)
+boxplot(reshape(sum(totvalevents,2),MRUNS,ERUNS),1:ERUNS,'color','k','labels',...
+    {'Low','Low Mod.','Mod.','High Mod.','High'},'extrememode','compress')
+xlabel('Interdiction Capacity')
+ylabel('Total Value Seized ($/kg)')
+saveas(h1_5,'TotVal_SL_varcptcy','tif')
+
+%%% Amount that gets through
+h1_6=figure;
+set(h1_6,'color','white')
+set(gca,'FontSize',14)
+boxplot(reshape(median(DLVR,2),MRUNS,ERUNS),1:ERUNS,'color','k','labels',...
+    {'Low','Low Mod.','Mod.','High Mod.','High'},'extrememode','compress')
+xlabel('Interdiction Capacity')
+ylabel('Median Volume Delivered (kg)')
+saveas(h1_6,'MdnDlvr_SL_varcptcy','tif')
+
+h1_7=figure;
+set(h1_7,'color','white')
+set(gca,'FontSize',14)
+boxplot(reshape(sum(DLVR,2),MRUNS,ERUNS),1:ERUNS,'color','k','labels',...
+    {'Low','Low Mod.','Mod.','High Mod.','High'},'extrememode','compress')
+xlabel('Interdiction Capacity')
+ylabel('Total Volume Delivered (kg)')
+saveas(h1_7,'TotDlvr_SL_varcptcy','tif')
+
+%%% Number of active rotues and nodes
+h1_8=figure;
+set(h1_8,'color','white')
+set(gca,'FontSize',14)
+boxplot(reshape(ACTCHECK',MRUNS,ERUNS),1:ERUNS,'color','k','labels',...
+    {'Low','Low Mod.','Mod.','High Mod.','High'},'extrememode','compress')
+xlabel('Interdiction Capacity')
+ylabel('Median Active Nodes')
+saveas(h1_8,'ActNodes_varcptcy','tif')
+
+% h1_9=figure;
+% set(h1_9,'color','white')
+% boxplot(reshape(PMRYMV',MRUNS,ERUNS),1:ERUNS,'color','b','labels',...
+%     {'Low','Low Mod.','Mod.','High Mod.','High'},'extrememode','compress')
+% xlabel('Interdiction Capacity')
+% ylabel('Median Primary Movements')
+% saveas(h1_9,'primemoves_varcptcy','png')
+
 
 valuedata=zeros(MRUNS*ERUNS,1);
 for m=1:length(totvalevents(:,1))
@@ -586,26 +986,16 @@ for m=1:length(totvalevents(:,1))
 %     valuedata(m)=mean(totvalevents(m,totvalevents(m,:)~=0));
 end
 h1_2=figure;
-set(h1_2,'color','white','Visible','off')
+set(h1_2,'color','white')
 boxplot(reshape(valuedata,MRUNS,ERUNS),1:ERUNS,'color','k','labels',...
     {'Low','Low Mod.','Mod.','High Mod.','High'},'extrememode','compress')
 xlabel('Interdiction Capacity')
 ylabel('Median Value Seized ($/kg)')
 saveas(h1_2,'Annual_VAL_varcptcy','png')
 
-
-h1_1=figure;
-set(h1_1,'color','white','Visible','off')
-boxplot(reshape(median(totactrtes,2),MRUNS,ERUNS),1:ERUNS,'color','b','labels',...
-    {'Low','Low Mod.','Mod.','High Mod.','High'})
-xlabel('Interdiction Capacity')
-ylabel('Median Annual Number of Active Routes')
-saveas(h1_1,'Annual_Routes_varcpcty','png')
-
-
 for er=1:ERUNS
 h3=figure;
-set(h3,'color','white','Visible','off')
+set(h3,'color','white')
 geoshow(CAadm0,'FaceColor',[1 1 1])
 hold on
 for n=2:NNODES-1
@@ -620,6 +1010,49 @@ title('Average First Time Step of Cocaine Movements')
 xlabel('Longitude')
 ylabel('Latitude')
 saveas(h3,sprintf('Earliest_Movement_%d',er),'png')
+clf
+
+%%% Max flows
+[submaxflow,imaxflow]=max(SENDFLOW(:,:,batchind(:,1)==er),[],2);
+
+% %%% Max flow index
+% % Interpretation: index of movement size relative to average across all
+% % time steps. Then, taking the maximum index value and its time step
+% normflows=mean(SENDFLOW(:,:,batchind(:,1)==er),3);
+% [submaxflow,imaxflow]=max(SENDFLOW(:,:,batchind(:,1)==er)./normflows,[],2);
+
+submaxflow=reshape(submaxflow,NNODES,MRUNS);
+maxflows(2:NNODES-1,er)=mean(submaxflow(2:NNODES-1,:),2);
+maxsize=max(maxflows(2:NNODES-1,er));
+imaxflow=reshape(imaxflow,NNODES,MRUNS);
+maxyear(2:NNODES-1,er)=mean(imaxflow(2:NNODES-1,:),2);
+minyear=min(maxyear(2:NNODES-1,er));
+h20=figure;
+set(h20,'color','white')
+geoshow(CAadm0,'FaceColor',[1 1 1])
+hold on
+for n=2:NNODES-1
+    if isnan(maxflows(n,er)) == 1
+        continue
+    else
+        %%% Max Flows
+%         plot(NodeTable.Lon(n),NodeTable.Lat(n),'o','MarkerSize',...
+%             ceil(13*maxflows(n,er)/maxsize),'MarkerEdgeColor','k','MarkerFaceColor',...
+%             [1-(maxyear(n,er)-minyear)/(TMAX-minyear) (maxyear(n,er)-minyear)/(TMAX-minyear) 0])
+        plot(NodeTable.Lon(n),NodeTable.Lat(n),'o','MarkerSize',...
+            ceil(13*maxflows(n,er)/maxsize),'MarkerEdgeColor','k','MarkerFaceColor',...
+            [0 1-(maxyear(n,er)-minyear)/(TMAX-minyear) 0])
+        
+%         %%% Percent flows
+%         plot(NodeTable.Lon(n),NodeTable.Lat(n),'o','MarkerSize',...
+%             ceil(13*maxflows(n,er)),'MarkerEdgeColor','k','MarkerFaceColor',...
+%             [1-(maxyear(n,er)-minyear)/(TMAX-minyear) (maxyear(n,er)-minyear)/(TMAX-minyear) 0])
+    end
+end
+title('Peak Cocaine Movements and Year')
+xlabel('Longitude')
+ylabel('Latitude')
+% saveas(h20,sprintf('Max_Movement_Year_%d',er),'png')
 clf
 end
 
