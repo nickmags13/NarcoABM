@@ -1,9 +1,13 @@
 %%%%%%%%%%%%%%%% Upload or build suitability layer %%%%%%%%%%%%%%%%%%%%%%%%
-function [LANDSUIT]=load_suitability(buildsuit)
+function [LANDSUIT]=load_suitability(buildsuit,dbrdr_suit,cagrid_cntry,...
+    cntrynodataval,dptcodes,ca_adm0,dcoast)
 
 if buildsuit == 1       %load RAT suitability model
     
 else
+    % Coastal distance
+    dcoast_suit=1-dcoast./max(max(dcoast));
+    
     % Tree cover
     [tcov,~]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\treecov_clp.tif');
     treecov=tcov;
@@ -17,13 +21,6 @@ else
     for cc=1:length(dptcodes)
         avgtcov(cc)=mean(treecov(ca_adm0 == dptcodes(cc)));
     end
-    
-    % Distance to coast and country borders
-    [dcoast,~]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\dcoast_clp.tif');
-    dcoastnodataval=-9999;
-    dcoast(cagrid_cntry==cntrynodataval)=NaN;
-    dcoast(dcoast == dcoastnodataval)=NaN;
-    dcoast_suit=1-dcoast./max(max(dcoast));
     
     % Population density as a proxy for remoteness
     [popden,~]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\popden_clp.tif');

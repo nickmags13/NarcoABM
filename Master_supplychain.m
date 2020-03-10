@@ -144,9 +144,19 @@ for erun=1:ERUNS
         dptmat=[dptcodes dptvec];
         dptorder=sortrows(dptmat,2);
         
-        %%%% Load suitability layer
-        suitbuild=suitflag(erun);
-        [LANDSUIT]=load_suitability(buildsuit);
+        % Distance to coast and country borders
+        [dcoast,~]=geotiffread('D:\CentralAmerica\Model_inputs\clipped\dcoast_clp.tif');
+        dcoastnodataval=-9999;
+        dcoast(cagrid_cntry==cntrynodataval)=NaN;
+        dcoast(dcoast == dcoastnodataval)=NaN;
+        
+%         %%%% Build suitability layer
+%         suitbuild=suitflag(erun);
+%         [LANDSUIT]=load_suitability(suitbuild,dbrdr_suit,cagrid_cntry,...
+%             cntrynodataval,dptcodes,ca_adm0,dcoast);
+        
+        %%%% Load suitability file
+        load landsuit_file_default
         
         %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         %@@@@@@@@@@ Agent Attributes @@@@@@@@@@@@
@@ -190,8 +200,8 @@ for erun=1:ERUNS
         %%%%%   Build trafficking network - NodeTable and EdgeTable   %%%%%
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %         %%% Build suitability-based network
-%         [NodeTable,EdgeTable]=build_network(ca_adm0,Rcagrid_cntry,Rdptgrid,...
-%             LANDSUIT,dptcodes,dptorder,savedState);
+%         [NodeTable,EdgeTable]=build_network(ca_adm0,Rcagrid_cntry,dptgrid,...
+%             Rdptgrid,LANDSUIT,dptcodes,dptorder,savedState,stock_0);
         
         %%% Load existing network
         load network_file
@@ -266,6 +276,7 @@ for erun=1:ERUNS
         nwvec=sqrt(0.9.*NodeTable.Lat(2:nnodes-1).^2+0.1.*NodeTable.Lon(2:nnodes-1).^2);
         latfac=[0; 1-nwvec./max(nwvec); 0];
         % Create adjacency matrix (without graph toolbox)
+        iendnode=NodeTable.ID(NodeTable.DeptCode == 2);
         ADJ(EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1),iendnode)=1;
         iedge=find(ADJ == 1);
         subneihood=zeros(size(LANDSUIT));

@@ -1,6 +1,6 @@
 %%%%%%%%%%%%%%%%%    Build trafficking network    %%%%%%%%%%%%%%%%%%%%%%%%%
-function [NodeTable,EdgeTable]=build_network(ca_adm0,Rcagrid_cntry,Rdptgrid,...
-    LANDSUIT,dptcodes,dptorder,savedState)
+function [NodeTable,EdgeTable]=build_network(ca_adm0,Rcagrid_cntry,dptgrid,...
+    Rdptgrid,LANDSUIT,dptcodes,dptorder,savedState,stock_0)
 
 % Set-up producer and end supply nodes
 strow=size(ca_adm0,1);
@@ -82,13 +82,13 @@ for i=1:length(dptorder)
         nodecode=[nodecode; dptorder(i,1)*ones(length(randnode),1)];
         nodestck=[nodestck; zeros(length(randnode),1)];
         nodecptl=[nodecptl; zeros(length(randnode),1)];
-        %         nodetcov=[nodetcov; treecov(randnode)];
-        %         nodepopsuit=[nodepopsuit; pop_suit(randnode)];
-        %         nodedcsuit=[nodedcsuit; dcoast_suit(randnode)];
-        %         nodedbsuit=[nodedbsuit; dbrdr_suit(randnode)];
-        %         nodeslpsuit=[nodeslpsuit; slp_suit(randnode)];
-        %         nodemktsuit=[nodemktsuit; mktacc_suit(randnode)];
-        %         nodelusuit=[nodelusuit; lu_suit(randnode)];
+        nodetcov=[nodetcov; zeros(length(randnode),1)];
+        nodepopsuit=[nodepopsuit; zeros(length(randnode),1)];
+        nodedcsuit=[nodedcsuit; zeros(length(randnode),1)];
+        nodedbsuit=[nodedbsuit; zeros(length(randnode),1)];
+        nodeslpsuit=[nodeslpsuit; zeros(length(randnode),1)];
+        nodemktsuit=[nodemktsuit; zeros(length(randnode),1)];
+        nodelusuit=[nodelusuit; zeros(length(randnode),1)];
         nodelsuit=[nodelsuit; LANDSUIT(randnode)];
         nodedto=[nodedto; zeros(length(randnode),1)];
         %                 nodedto=[nodedto; dtoassign(1:min(length(dtoassign),length(ipotnode)))];
@@ -117,13 +117,13 @@ for i=1:length(dptorder)
             nodecode=[nodecode; 2];
             nodestck=[nodestck; 0];
             nodecptl=[nodecptl; 0];
-            %             nodetcov=[nodetcov; 0];
-            %             nodepopsuit=[nodepopsuit; 0];
-            %             nodedcsuit=[nodedcsuit; 0];
-            %             nodedbsuit=[nodedbsuit; 0];
-            %             nodeslpsuit=[nodeslpsuit; 0];
-            %             nodemktsuit=[nodemktsuit; 0];
-            %             nodelusuit=[nodelusuit; 0];
+            nodetcov=[nodetcov; 0];
+            nodepopsuit=[nodepopsuit; 0];
+            nodedcsuit=[nodedcsuit; 0];
+            nodedbsuit=[nodedbsuit; 0];
+            nodeslpsuit=[nodeslpsuit; 0];
+            nodemktsuit=[nodemktsuit; 0];
+            nodelusuit=[nodelusuit; 0];
             nodelsuit=[nodelsuit; 0];
             nodedto=[nodedto; 0];
             weights=ones(length(snode),1);
@@ -146,9 +146,9 @@ NodeTable=table(nodeid',noderow,nodecol,nodelat,nodelon,nodecode,nodestck,...
 rng(savedState);
 hitrngstate=rand(height(NodeTable),1);
 
-for k=1:nnodes-1
+for k=1:height(NodeTable)-1
     if k == 1
-        newedges=2:nnodes;
+        newedges=2:height(NodeTable);
         nodechk=ismember(newedges,EdgeTable.EndNodes(EdgeTable.EndNodes(:,1)==k,2)); %check for redundant edges
         newedges=newedges(~nodechk);
         weights=ones(length(newedges),1);
@@ -159,7 +159,7 @@ for k=1:nnodes-1
             [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
             'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
     else
-        nodeset=k+1:nnodes;
+        nodeset=k+1:height(NodeTable);
         nnewedges=ceil(0.1*length(nodeset)*rand(1));    %generate new edges
         newedges=nodeset(randperm(length(nodeset),min(nnewedges,length(nodeset))));
         nodechk=ismember(newedges,EdgeTable.EndNodes(EdgeTable.EndNodes(:,1)==k,2)); %check for redundant edges
@@ -176,7 +176,7 @@ end
 
 % Make sure all nodes connect to end node
 iendnode=NodeTable.ID(NodeTable.DeptCode == 2);
-newedges=1:nnodes-1;
+newedges=1:height(NodeTable)-1;
 nodechk=ismember(newedges,EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1)); %check for redundant edges
 newedges=newedges(~nodechk);
 weights=ones(length(newedges),1);
