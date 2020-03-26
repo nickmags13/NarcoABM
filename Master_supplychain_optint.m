@@ -36,7 +36,7 @@ for erun=1:ERUNS
         % load experimental parameters file
         [sl_max,sl_min,baserisk,riskmltplr,startstock,sl_learn,rt_learn,...
             losslim,prodgrow,targetseize,intcpctymodel,profitmodel,endstock,...
-            growthmdl,timewght,locthink,expandmax,empSLflag,suitflag]=load_expmntl_parms(ERUNS);
+            growthmdl,timewght,locthink,expandmax,empSLflag,optSLflag,suitflag]=load_expmntl_parms(ERUNS);
         
         ccdb = [1	0	1	1	1	0	0	1	1	1	0	0	0	0   0
                 0	0	3	1	1	0	0	1	0	0	0	1	0	1   0
@@ -156,7 +156,12 @@ for erun=1:ERUNS
 %             cntrynodataval,dptcodes,ca_adm0,dcoast);
         
         %%%% Load suitability file
-        load landsuit_file_default
+        if suitflag(erun) == 1
+            load landsuit_file_RAT
+            LANDSUIT=prime_before;
+        else
+            load landsuit_file_default
+        end
         
         %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         %@@@@@@@@@@ Agent Attributes @@@@@@@@@@@@
@@ -204,7 +209,11 @@ for erun=1:ERUNS
 %             Rdptgrid,LANDSUIT,dptcodes,dptorder,savedState,stock_0);
         
         %%% Load existing network
-        load network_file
+        if suitflag == 1
+            load network_file_RAT
+        else
+            load network_file
+        end
         
         nnodes=height(NodeTable);
         ADJ=zeros(nnodes);      % adjacency matrix for trafficking network
@@ -523,7 +532,9 @@ for erun=1:ERUNS
             intrdevent(:,t)=zeros(nnodes,1);
             
             %%%% Check for interdiction events from optimization model
-            [intrdct_events]=optimize_interdiction(t);
+            if optSLflag(erun) == 1
+                [intrdct_events]=optimize_interdiction(t);
+            end
             %%
             MOV(:,1,t)=NodeTable.Stock(:);
             
@@ -979,7 +990,7 @@ for erun=1:ERUNS
         end
         t_firstmov(nnodes)=find(STOCK(nnodes,:)>0,1,'first');
         
-        savefname=sprintf('supplychain_results_021618_%d_%d',erun,mrun);
+        savefname=sprintf('supplychain_results_optint_032520_%d_%d',erun,mrun);
         parsave_illicit_supplychain(savefname,EdgeTable,NodeTable,MOV,FLOW,OUTFLOW,...
             CTRANS,TOTCPTL,DTOBDGT,slsuccess,activeroute,STOCK,RISKPREM,slperevent,slval,...
             nactnodes,sltot,t_firstmov,PRICE);
