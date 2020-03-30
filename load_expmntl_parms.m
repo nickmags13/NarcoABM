@@ -3,9 +3,10 @@ function [sl_max,sl_min,baserisk,riskmltplr,startstock,sl_learn,rt_learn,...
     growthmdl,timewght,locthink,expandmax,empSLflag,optSLflag,suitflag]=load_expmntl_parms(ERUNS)
     
 empSLflag=zeros(1,ERUNS);    %determines is empirical (1) or artificial (0) S&L schedule used
-optSLflag=zeros(1,ERUNS);   %use interdiction events from optimization model (1)
-% suitflag=zeros(1,ERUNS);    % use RAT suitability (1) or build from covariates (0)
-suitflag=ones(1,ERUNS);
+% optSLflag=zeros(1,ERUNS);   %use interdiction events from optimization model (1)
+optSLflag=ones(1,ERUNS);
+suitflag=zeros(1,ERUNS);    % use RAT suitability (1) or build from covariates (0)
+% suitflag=ones(1,ERUNS);
 sl_max=125*ones(1,ERUNS);       %baseline; maximum interdiction capacity
 % sl_max=[75 100 125 150 175];
 % sl_max=114*ones(1,ERUNS);

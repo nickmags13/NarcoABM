@@ -1,7 +1,7 @@
 %%%%%%%% Master file to run experiments %%%%%%%%%%%%
 cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\NarcoABM
 tic
-MRUNS=6;
+MRUNS=1;
 ERUNS=1;
 
 rng default
@@ -14,7 +14,7 @@ for erun=1:ERUNS
     
     rng default
     
-   for mrun=6:MRUNS
+   for mrun=1:MRUNS
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %%%%%%%%%%%%%%%%%%%%%%%%%%   NarcoLogic ABM   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -158,7 +158,12 @@ for erun=1:ERUNS
         %%%% Load suitability file
         if suitflag(erun) == 1
             load landsuit_file_RAT
-            LANDSUIT=prime_before;
+            suitbrick=zeros(size(prime_before,1),size(prime_before,2),4);
+            suitbrick(:,:,1)=prime_before; 
+            suitbrick(:,:,2)=prime_after; 
+            suitbrick(:,:,3)=sec_before; 
+            suitbrick(:,:,4)=sec_after;
+            LANDSUIT=max(suitbrick,[],3);
         else
             load landsuit_file_default
         end
@@ -415,7 +420,7 @@ for erun=1:ERUNS
         slevent=zeros(nnodes,nnodes,TMAX);  % occurrence of S&L event
         slsuccess=zeros(nnodes,nnodes,TMAX);    % volume of cocaine seized in S&L events
         slvalue=zeros(nnodes,nnodes,TMAX);    % value of cocaine seized in S&L events
-        intrdevent=zeros(nnodes,TMAX);
+%         intrdevent=zeros(nnodes,TMAX);
         INTRDPROB=zeros(nnodes,TMAX);
         SLPROB=zeros(nnodes,nnodes,TMAX);   % dynamic probability of S&L event per edge
         
@@ -474,7 +479,10 @@ for erun=1:ERUNS
         %%% Set-up figure for trafficking movie
         MOV=zeros(nnodes,nnodes,TMAX);
         
-        
+        % Output tables for flows(t) and interdiction prob(t-1)
+        t=TSTART;
+        load init_flow
+        [Tflow,Tintrd]=intrd_tables(FLOW,SLPROB,EdgeTable,t);
         %%
         %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
@@ -489,51 +497,51 @@ for erun=1:ERUNS
             %%% Specified number of events, selection of highest probability nodes (in addition to p=1)
             %     newslevents=ceil(slcpcty(t)*rand(1));
             %%
-            islevent=[];
-            subslevent=slevent(:,:,t);
-            subsuccess=slsuccess(:,:,t-1);
-            subadj=zeros(size(ADJ));
-            irevisit=find(slsuccess(:,:,t-1) > 0);
-            sl_vol=sortrows([irevisit subsuccess(irevisit)],-2);
-            irevisit=sl_vol(1:min(slcpcty(t),length(irevisit)),1);
-            if empSLflag(erun) == 1
-                subslprob=SLPROB(:,:,t);
-                iempsl=find(ccdb(:,ceil(t/12)) > 0);
-                SLsplit=ccdb(iempsl,ceil(t/12))./sum(ccdb(iempsl,ceil(t/12)));
-                for gg=1:length(iempsl)
-                    subadj(slctnodes{iempsl(gg)},:)=subslprob(slctnodes{iempsl(gg)},:);
-                    subadj(:,slctnodes{iempsl(gg)})=subslprob(:,slctnodes{iempsl(gg)});
-                    itrgt=find(subadj==1);
-%                     islevent=[islevent; itrgt(randperm(length(itrgt),...
-%                         min(round(slcpcty(t)*SLsplit(gg)),length(itrgt))))];
-                    islevent=[islevent; itrgt];
-                end
-                islevent=[islevent; irevisit(~ismember(irevisit,islevent))];
-            else
-                subslprob=reshape(SLPROB(:,:,t),nnodes*nnodes,1);
-                if isempty(find(irevisit,1)) == 1 && ...
-                        sum(sum(sum(slsuccess(:,:,TSTART+1:t-1))),3) > 0
-                    slquant=quantile(subslprob(subslprob~=0),[0.5 0.75 0.9]);
-                    sleligible=find(subslprob > slquant(1));
-                else
-                    slquant=quantile(subslprob(subslprob~=0),[0.5 0.75 0.9]);
-                    sleligible=find(subslprob > slquant(2));
-                end
-                sleligible=sleligible(~ismember(sleligible,irevisit));
-%                 islevent=[irevisit; sleligible(randperm(length(sleligible),...
-%                     min(max(slcpcty(t)-length(irevisit),0),length(sleligible))))];
-                sortedset=sortrows([subslprob(sleligible) sleligible],-1);
-                islevent=[irevisit; sortedset(1:min(max(slcpcty(t)-...
-                    length(irevisit),0),length(sleligible)),2)];
-            end
-            
-            subslevent(islevent)=1;
-            slevent(:,:,t)=subslevent;
-            intrdevent(:,t)=zeros(nnodes,1);
-            
             %%%% Check for interdiction events from optimization model
             if optSLflag(erun) == 1
-                [intrdct_events]=optimize_interdiction(t);
+                [intrdct_events]=optimize_interdiction(t,ADJ);
+                slevent(:,:,t)=intrdct_events;
+            else
+                islevent=[];
+                subslevent=slevent(:,:,t);
+                subsuccess=slsuccess(:,:,t-1);
+                subadj=zeros(size(ADJ));
+                irevisit=find(slsuccess(:,:,t-1) > 0);
+                sl_vol=sortrows([irevisit subsuccess(irevisit)],-2);
+                irevisit=sl_vol(1:min(slcpcty(t),length(irevisit)),1);
+                if empSLflag(erun) == 1
+                    subslprob=SLPROB(:,:,t);
+                    iempsl=find(ccdb(:,ceil(t/12)) > 0);
+                    SLsplit=ccdb(iempsl,ceil(t/12))./sum(ccdb(iempsl,ceil(t/12)));
+                    for gg=1:length(iempsl)
+                        subadj(slctnodes{iempsl(gg)},:)=subslprob(slctnodes{iempsl(gg)},:);
+                        subadj(:,slctnodes{iempsl(gg)})=subslprob(:,slctnodes{iempsl(gg)});
+                        itrgt=find(subadj==1);
+                        %                     islevent=[islevent; itrgt(randperm(length(itrgt),...
+                        %                         min(round(slcpcty(t)*SLsplit(gg)),length(itrgt))))];
+                        islevent=[islevent; itrgt];
+                    end
+                    islevent=[islevent; irevisit(~ismember(irevisit,islevent))];
+                else
+                    subslprob=reshape(SLPROB(:,:,t),nnodes*nnodes,1);
+                    if isempty(find(irevisit,1)) == 1 && ...
+                            sum(sum(sum(slsuccess(:,:,TSTART+1:t-1))),3) > 0
+                        slquant=quantile(subslprob(subslprob~=0),[0.5 0.75 0.9]);
+                        sleligible=find(subslprob > slquant(1));
+                    else
+                        slquant=quantile(subslprob(subslprob~=0),[0.5 0.75 0.9]);
+                        sleligible=find(subslprob > slquant(2));
+                    end
+                    sleligible=sleligible(~ismember(sleligible,irevisit));
+                    %                 islevent=[irevisit; sleligible(randperm(length(sleligible),...
+                    %                     min(max(slcpcty(t)-length(irevisit),0),length(sleligible))))];
+                    sortedset=sortrows([subslprob(sleligible) sleligible],-1);
+                    islevent=[irevisit; sortedset(1:min(max(slcpcty(t)-...
+                        length(irevisit),0),length(sleligible)),2)];
+                end
+                subslevent(islevent)=1;
+                slevent(:,:,t)=subslevent;
+%                 intrdevent(:,t)=zeros(nnodes,1);
             end
             %%
             MOV(:,1,t)=NodeTable.Stock(:);
@@ -724,25 +732,24 @@ for erun=1:ERUNS
                     fwdnei=inei;
                     t_eff=0:12;
                     if t == TSTART+1
-                        intrdoccur=[zeros(12,length(fwdnei)); intrdevent(fwdnei,TSTART+1)'];
+%                         intrdoccur=[zeros(12,length(fwdnei)); intrdevent(fwdnei,TSTART+1)'];
                         sloccur=[zeros(12,length(fwdnei)); slevent(n,fwdnei,TSTART+1)];
 %                         sloccur=slevent(n,fwdnei,TSTART+1:t);
                     elseif t > TSTART+1 && length(fwdnei) == 1
-                        intrdoccur=[zeros(13-length(max(TSTART+1,t-12):t),1); ...
-                            squeeze(intrdevent(fwdnei,max(TSTART+1,t-12):t)')];
+%                         intrdoccur=[zeros(13-length(max(TSTART+1,t-12):t),1); ...
+%                             squeeze(intrdevent(fwdnei,max(TSTART+1,t-12):t)')];
                         sloccur=[zeros(13-length(max(TSTART+1,t-12):t),1); ...
                             squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t))];
 %                         sloccur=squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t));
                     else
-                        intrdoccur=[zeros(13-length(max(TSTART+1,t-12):t),length(fwdnei)); ...
-                            squeeze(intrdevent(fwdnei,max(TSTART+1,t-12):t)')];
+%                         intrdoccur=[zeros(13-length(max(TSTART+1,t-12):t),length(fwdnei)); ...
+%                             squeeze(intrdevent(fwdnei,max(TSTART+1,t-12):t)')];
                         sloccur=[zeros(13-length(max(TSTART+1,t-12):t),length(fwdnei)); ...
                             squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t))'];
 %                         sloccur=squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t))';
                     end
-%                     intrdoccur=intrdevent(fwdnei,max(TSTART+1,t-12):t);
-                    [sl_risk,intrd_risk,slevnt,intrdevnt,tmevnt]=calc_intrisk(sloccur,...
-                        intrdoccur,t_eff,TSTART,alpharisk,betarisk,timeweight);
+                    [sl_risk,slevnt,tmevnt]=calc_intrisk(sloccur,...
+                        t_eff,alpharisk,betarisk,timeweight);
                     SLRISK(n,fwdnei)=sl_risk;
 %                     SLRISK(n,fwdnei)=(1-delta_rt)*SLRISK(n,fwdnei)+delta_rt*sl_risk;
 %                     RISKPREM(n,fwdnei,t)=(1-delta_rt).*RISKPREM(n,fwdnei,t-1)+...
@@ -751,8 +758,6 @@ for erun=1:ERUNS
                         avgslrisk(n,t)=mat2cell(SLRISK(n,activeroute{n,t}),1,...
                             length(activeroute{n,t}));
                     end
-                    %       INTRISK(n,t+1)=mean(intrd_risk);  %node-specific risk is the average of neighbor risks
-                    
                     %!!!!!!!!!!!
                     %          ICPTL(n,t)=ICPTL(n,t)-OUTFLOW(n,t)*VALUE(  %account for value retained at node
                     

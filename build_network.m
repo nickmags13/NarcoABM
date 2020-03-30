@@ -49,12 +49,14 @@ nodepct=0.00005; %percentage of high suitability cells that contain possible nod
 nodequant=quantile(LANDSUIT(~isnan(LANDSUIT)),[0.025 0.50 0.66 0.75 0.99]);
 %         inodepick=find(LANDSUIT > nodequant(4));
 inodepick=find(LANDSUIT > 0.8);
+% inodepick=find(LANDSUIT > 0.5);     %Use with RAT suitability
+
 avgnodealloc=ceil((length(inodepick)*nodepct)/length(dptcodes));
 pctdptsuit=zeros(length(dptorder(:,1)),1);
 for dc=1:length(pctdptsuit)
     dptsuit=LANDSUIT(dptgrid == dptorder(dc,1));
-    %             pctdptsuit(dc)=length(find(dptsuit > nodequant(3)))/length(dptsuit);
     pctdptsuit(dc)=length(find(dptsuit > 0.8))/length(dptsuit);
+%     pctdptsuit(dc)=length(find(dptsuit > 0.5))/length(dptsuit); %Use with RAT suitability
 end
 allocnodes=round(1.75*pctdptsuit/mean(pctdptsuit));
 %         allocnodes=round(pctdptsuit/mean(pctdptsuit));

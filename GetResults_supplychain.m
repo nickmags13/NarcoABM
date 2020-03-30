@@ -2,15 +2,15 @@
 
 % cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_full_020618
 % cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_null_013018
-cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\model_results\SupplyChain_full_021618
+cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\model_results\SupplyChain_optint_032520
 fnames=dir;
 fnamescell=struct2cell(fnames);
 h=strncmp('supplychain_results_',fnamescell(1,:),20);
 hind=find(h==1);
 
-[CAadm0,CAattr0]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\GADM\g2015_2014_0\CAadm0.shp',...
+[CAadm0,CAattr0]=shaperead('D:\CentralAmerica\GADM\g2015_2014_0\CAadm0.shp',...
             'UseGeoCoords',true);
-[CAadm1,CAattr1]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\GADM\g2015_2014_1\CAadm1.shp',...
+[CAadm1,CAattr1]=shaperead('D:\CentralAmerica\GADM\g2015_2014_1\CAadm1.shp',...
             'UseGeoCoords',true);
 
 load(fnamescell{1,hind(1)})
@@ -18,14 +18,14 @@ NNODES=length(NodeTable.ID);
 
 TSTART=1;
 TMAX=180;
-MRUNS=30;
+MRUNS=1;
 ERUNS=1;
 ndto=2;
 batchind=[reshape(repmat(1:ERUNS,MRUNS,1),MRUNS*ERUNS,1) ...
     reshape(repmat(1:MRUNS,1,ERUNS),MRUNS*ERUNS,1)];
 
-% sl_max=[80 160 240 320 400];
-sl_max=400;
+% sl_max=[75 100 125 150 175];
+sl_max=125;
 sl_min=ceil(sl_max/6);
 
 % NACTNODES=cell(ndto,MRUNS*ERUNS);
@@ -53,7 +53,7 @@ PRMYMV=zeros(1,MRUNS*ERUNS);
 edgecompare=cell(1,length(hind));
     
 for mr=1:length(hind)   % MRUNS*EXPTRUNS
-    h=strcmp(sprintf('supplychain_results_020618_%d_%d.mat',...
+    h=strcmp(sprintf('supplychain_results_optint_032520_%d_%d.mat',...
         batchind(mr,1),batchind(mr,2)),fnamescell(1,:));
 %     h=strcmp(sprintf('supplychain_results_013018_%d_%d.mat',...
 %         batchind(mr,1),batchind(mr,2)),fnamescell(1,:));
@@ -756,6 +756,8 @@ saveas(h13,'NetworkMap','png')
 
 % 
 % %%% Locate Department statistics
+% nnodes=NNODES;
+% TMAX=180;
 cntrynames={'Guatemala','Panama','Panama','Costa Rica','Honduras','Panama','Nicaragua','Panama'};
 deptnames={'Pet','Dari','Ember','Puntarenas','Grac','Col','Atlantico Norte','Veraguas'};
 cntryind=zeros(length(CAattr1),length(deptnames));

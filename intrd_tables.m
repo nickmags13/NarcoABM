@@ -11,7 +11,11 @@ startFLOW=FLOW(:,:,t);
 % Tflow(:,3)=array2table(startFLOW(iflow));
 
 Tintrd=table('Size',[height(EdgeTable) 3],'VariableTypes',varTypes,'VariableNames',{'End_Node','Start_Node','IntitProb'});
-startSLPROB=SLPROB(:,:,t-1);
+if t == 1
+    startSLPROB=SLPROB(:,:,1);
+else
+    startSLPROB=SLPROB(:,:,t-1);
+end
 sumprob=sum(sum(startSLPROB));
 for g=1:height(EdgeTable)
     edge=table2array(EdgeTable(g,1));
@@ -36,6 +40,6 @@ else
 end
 t3=mod(t,10);
 cd C:\Users\nrmagliocca\'Google Drive'\NSF_EAGER_Models
-writetable(Tflow,sprintf('%d%d%d_SL_3_MCI.csv',t1,t2,t3))
-writetable(Tintrd,sprintf('%d%d%d_SLPROB_3_MCI.csv',t1,t2,t3)) %apply to next time step's interdiction actions
+writetable(Tflow,sprintf('%d%d%d_SL_3_MCI.txt',t1,t2,t3))
+writetable(Tintrd,sprintf('%d%d%d_SLPROB_3_MCI.txt',t1,t2,t3)) %apply to next time step's interdiction actions
 cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\NarcoABM
