@@ -482,7 +482,11 @@ for erun=1:ERUNS
         % Output tables for flows(t) and interdiction prob(t-1)
         t=TSTART;
         load init_flow
-        [Tflow,Tintrd]=intrd_tables(FLOW,SLPROB,EdgeTable,t);
+        [rinit,cinit]=ind2sub([nnodes nnodes],find(FLOW(:,:,1) > 0));
+        for w=1:length(rinit)
+            MOV(rinit(w),cinit(w),1)=FLOW(rinit(w),cinit(w),1);
+        end
+        [Tflow,Tintrd]=intrd_tables(FLOW,slsuccess,SLPROB,NodeTable,EdgeTable,t);
         %%
         %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
@@ -816,7 +820,6 @@ for erun=1:ERUNS
                         OUTFLOW(1,t)))),slcpcty_0),slcpcty_max);
 %                 end
             end
-            %     INTRDPROB(:,t+1)=INTRDPROB(:,t);
             
             % Reinforcement learning for successful routes
             iactivenode=find(OUTFLOW(2:nnodes-1,t) > 0)+1;
@@ -951,7 +954,7 @@ for erun=1:ERUNS
             NodeTable.Stock(nnodes)=0;
             
             % Output tables for flows(t) and interdiction prob(t-1)
-            [Tflow,Tintrd]=intrd_tables(FLOW,SLPROB,EdgeTable,t);
+            [Tflow,Tintrd]=intrd_tables(FLOW,slsuccess,SLPROB,NodeTable,EdgeTable,t);
         end
         
         nactnodes=zeros(ndto,TMAX);

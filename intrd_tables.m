@@ -1,16 +1,18 @@
 %%%%%% Interdiction Initialization %%%%%%%%%%
-function [Tflow,Tintrd]=intrd_tables(FLOW,SLPROB,EdgeTable,t)
+function [Tflow,Tintrd]=intrd_tables(FLOW,slsuccess,SLPROB,NodeTable,EdgeTable,t)
 
-varTypes={'double','double','double'};
-Tflow=table('Size',[height(EdgeTable) 3],'VariableTypes',varTypes,'VariableNames',{'End_Node','Start_Node','IntitFlow'});
-startFLOW=FLOW(:,:,t);
+varTypes={'double','double','double','double'};
+Tflow=table('Size',[height(EdgeTable) 4],'VariableTypes',varTypes,...
+    'VariableNames',{'End_Node','Start_Node','IntitFlow','DTO'});
+startFLOW=FLOW(:,:,t)+slsuccess(:,:,t);
 % iflow=find(startFLOW > 0);
 % [snd,rec]=ind2sub(size(startFLOW),iflow);
 % Tflow(1:length(rec),1)=array2table(rec);
 % Tflow(:,2)=array2table(snd);
 % Tflow(:,3)=array2table(startFLOW(iflow));
 
-Tintrd=table('Size',[height(EdgeTable) 3],'VariableTypes',varTypes,'VariableNames',{'End_Node','Start_Node','IntitProb'});
+Tintrd=table('Size',[height(EdgeTable) 3],'VariableTypes',{'double','double','double'},...
+    'VariableNames',{'End_Node','Start_Node','IntitProb'});
 if t == 1
     startSLPROB=SLPROB(:,:,1);
 else
@@ -22,6 +24,7 @@ for g=1:height(EdgeTable)
     Tflow(g,1)={edge(2)};
     Tflow(g,2)={edge(1)};
     Tflow(g,3)={startFLOW(edge(1),edge(2))};
+    Tflow(g,4)={NodeTable.DTO(edge(2))};
     
     Tintrd(g,1)={edge(2)};
     Tintrd(g,2)={edge(1)};
