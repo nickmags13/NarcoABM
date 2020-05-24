@@ -36,7 +36,8 @@ for erun=1:ERUNS
         % load experimental parameters file
         [sl_max,sl_min,baserisk,riskmltplr,startstock,sl_learn,rt_learn,...
             losslim,prodgrow,targetseize,intcpctymodel,profitmodel,endstock,...
-            growthmdl,timewght,locthink,expandmax,empSLflag,optSLflag,suitflag]=load_expmntl_parms(ERUNS);
+            growthmdl,timewght,locthink,expandmax,empSLflag,optSLflag,...
+            suitflag,extnetflag]=load_expmntl_parms(ERUNS);
         
         ccdb = [1	0	1	1	1	0	0	1	1	1	0	0	0	0   0
                 0	0	3	1	1	0	0	1	0	0	0	1	0	1   0
@@ -84,6 +85,12 @@ for erun=1:ERUNS
         cntrlat=cat(1,CAcntr.Lat);
         cntrlon=cat(1,CAcntr.Lon);
         CApts=geopoint(CAcntr);
+        
+        [CAfull,CAfullattr]=shaperead('D:\CentralAmerica\GADM\CA_full_theater_0.shp','UseGeoCoords',...
+            true);
+%         cfulllat=cat(1,CAfull.Lat);
+%         cfulllon=cat(1,CAfull.Lon);
+%         CAfullpts=geopoint(CAfull);
         
         % Spatial narco vars by administrative departments
         [dptvars,dptvarsattr]=shaperead('D:\CentralAmerica\GADM\CA_ALLt_UTM\CA_ALLt_narcovars.shp',...
@@ -221,6 +228,39 @@ for erun=1:ERUNS
         end
         
         nnodes=height(NodeTable);
+        mexnode=nnodes;
+        endnodeset=mexnode;
+        icoastdist=sub2ind(size(dcoast),NodeTable.Row,NodeTable.Col);
+        coastdist=dcoast(icoastdist);  %convert to km
+        NodeTable.CoastDist=coastdist;
+        NodeTable.CoastDist(1)=0;
+        NodeTable.CoastDist(nnodes)=0;
+        %%% Assign nodes to initials DTOs
+        for nn=2:nnodes-1
+            westdir=NodeTable.Col(nn)-find(isnan(dcoast(NodeTable.Row(nn),1:...
+                NodeTable.Col(nn)-1))==1,1,'last');
+            eastdir=find(isnan(dcoast(NodeTable.Row(nn),NodeTable.Col(nn)+1:...
+                size(LANDSUIT,2)))==1,1,'first');
+            northdir=NodeTable.Row(nn)-find(isnan(dcoast(1:NodeTable.Row(nn)-1,...
+                NodeTable.Col(nn)))==1,1,'last');
+            southdir=find(isnan(dcoast(NodeTable.Row(nn)+1:size(LANDSUIT,1),...
+                NodeTable.Col(nn)))==1,1,'first');
+            [mindist,imindist]=min([westdir eastdir northdir southdir]);
+            if westdir < 2.5*eastdir
+                NodeTable.DTO(nn)=1;
+            else
+                NodeTable.DTO(nn)=2;
+            end
+        end
+        
+        if extnetflag == 1
+             [ext_NodeTable,ext_EdgeTable]=extend_network(nnodes,NodeTable,EdgeTable,Rdptgrid);
+             NodeTable=ext_NodeTable;
+             EdgeTable=ext_EdgeTable;
+             nnodes=height(NodeTable);
+             endnodeset=[mexnode 161:nnodes];
+        end
+        
         ADJ=zeros(nnodes);      % adjacency matrix for trafficking network
         TRRTY=zeros(nnodes);    % control of nodes by each DTO
         DIST=zeros(nnodes);     % geographic distance associated with edges
@@ -262,7 +302,7 @@ for erun=1:ERUNS
         hitrngstate=rand(nnodes,1);
         %         savedState=rng;
         %         rng(mrun)
-        for k=1:nnodes-1
+        for k=1:nnodes
             % Create adjacency matrix (without graph toolbox)
             ADJ(k,EdgeTable.EndNodes(EdgeTable.EndNodes(:,1)==k,2))=1;
         end
@@ -270,25 +310,23 @@ for erun=1:ERUNS
         %%% Node Attributes
         % forest cover as proxy for remoteness; the higher the forest cover, the
         % more remote and lower the S&L risk. Start and end node unchanged.
-        % remotefac=[0; 1-NodeTable.TreeCover(2:nnodes-1)./100; 0];
-        remotefac=[0; 1-NodeTable.PopSuit(2:nnodes-1); 0];
-        brdrfac=[0; NodeTable.DistBorderSuit(2:nnodes-1); 0];
-        suitfac=[0; NodeTable.LandSuit(2:nnodes-1); 0];
+%         remotefac=[0; 1-NodeTable.PopSuit(2:nnodes-1); 0];
+%         brdrfac=[0; NodeTable.DistBorderSuit(2:nnodes-1); 0];
+%         suitfac=[0; NodeTable.LandSuit(2:nnodes-1); 0];
+        
+        remotefac=[0; 1-NodeTable.PopSuit(2:nnodes)];
+        brdrfac=[0; NodeTable.DistBorderSuit(2:nnodes)];
+        suitfac=[0; NodeTable.LandSuit(2:nnodes)];
         
         % proximity to the coast also increases risk of S&L event
         % Find node distance to coast
-        % lats_in=NodeTable.Lat;
-        % lons_in=NodeTable.Lon;
-        % [dists_min,lats_closest,lons_closest]=dist_from_coast(lats_in,...
-        %     lons_in);
-        icoastdist=sub2ind(size(dcoast),NodeTable.Row,NodeTable.Col);
-        coastdist=dcoast(icoastdist);  %convert to km
-        NodeTable.CoastDist=coastdist;
-        NodeTable.CoastDist(1)=0;
-        % coastfac=2-NodeTable.CoastDist(:)./max(NodeTable.CoastDist(:));
-        coastfac=[0; NodeTable.CoastDist(2:nnodes-1)./max(NodeTable.CoastDist(:)); 0];
-        nwvec=sqrt(0.9.*NodeTable.Lat(2:nnodes-1).^2+0.1.*NodeTable.Lon(2:nnodes-1).^2);
-        latfac=[0; 1-nwvec./max(nwvec); 0];
+%         coastfac=[0; NodeTable.CoastDist(2:nnodes-1)./max(NodeTable.CoastDist(:)); 0];
+%         nwvec=sqrt(0.9.*NodeTable.Lat(2:nnodes-1).^2+0.1.*NodeTable.Lon(2:nnodes-1).^2);
+%         latfac=[0; 1-nwvec./max(nwvec); 0];
+        coastfac=[0; NodeTable.CoastDist(2:nnodes)./max(NodeTable.CoastDist(:))];
+        nwvec=sqrt(0.9.*NodeTable.Lat(2:nnodes).^2+0.1.*NodeTable.Lon(2:nnodes).^2);
+        latfac=[0; 1-nwvec./max(nwvec)];
+        
         % Create adjacency matrix (without graph toolbox)
         iendnode=NodeTable.ID(NodeTable.DeptCode == 2);
         ADJ(EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1),iendnode)=1;
@@ -327,9 +365,13 @@ for erun=1:ERUNS
             idist_air=(DIST(j,ireceiver) > 500);
             
             CTRANS(j,ireceiver(idist_ground),TSTART)=ctrans_inland.*...
-                DIST(j,ireceiver(idist_ground))./DIST(1,nnodes);
+                DIST(j,ireceiver(idist_ground))./DIST(1,mexnode);
             CTRANS(j,ireceiver(idist_air),TSTART)=ctrans_air.*...
-                DIST(j,ireceiver(idist_air))./DIST(1,nnodes);
+                DIST(j,ireceiver(idist_air))./DIST(1,mexnode);
+%             CTRANS(j,ireceiver(idist_ground),TSTART)=ctrans_inland.*...
+%                 DIST(j,ireceiver(idist_ground))./DIST(1,nnodes);
+%             CTRANS(j,ireceiver(idist_air),TSTART)=ctrans_air.*...
+%                 DIST(j,ireceiver(idist_air))./DIST(1,nnodes);
             
             if NodeTable.CoastDist(j) < 20
                 ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
@@ -337,9 +379,9 @@ for erun=1:ERUNS
                 idist_inland=(NodeTable.CoastDist(ireceiver) >= 20);
                 
                 CTRANS(j,ireceiver(idist_coast),TSTART)=ctrans_coast.*...
-                    DIST(j,ireceiver(idist_coast))./DIST(1,nnodes);
-                %                 CTRANS(j,ireceiver(idist_inland),TSTART)=ctrans_inland.*...
-                %                     DIST(j,ireceiver(idist_inland))./DIST(1,nnodes);
+                    DIST(j,ireceiver(idist_coast))./DIST(1,mexnode);
+%                 CTRANS(j,ireceiver(idist_coast),TSTART)=ctrans_coast.*...
+%                     DIST(j,ireceiver(idist_coast))./DIST(1,nnodes);
             end
             
             %     % Create gridded distance from node for calculating land use
@@ -361,57 +403,6 @@ for erun=1:ERUNS
             %         NEIHOOD(j,1)=mat2cell(idptcode,length(idptcode),1);
             %         NEIHOOD(j,2)=mat2cell(subneihood(idptcode),length(idptcode),1);
             %     end
-        end
-        
-        %%% Assign nodes to initials DTOs
-        for nn=2:nnodes-1
-            westdir=NodeTable.Col(nn)-find(isnan(dcoast(NodeTable.Row(nn),1:...
-                NodeTable.Col(nn)-1))==1,1,'last');
-            eastdir=find(isnan(dcoast(NodeTable.Row(nn),NodeTable.Col(nn)+1:...
-                size(LANDSUIT,2)))==1,1,'first');
-            northdir=NodeTable.Row(nn)-find(isnan(dcoast(1:NodeTable.Row(nn)-1,...
-                NodeTable.Col(nn)))==1,1,'last');
-            southdir=find(isnan(dcoast(NodeTable.Row(nn)+1:size(LANDSUIT,1),...
-                NodeTable.Col(nn)))==1,1,'first');
-            [mindist,imindist]=min([westdir eastdir northdir southdir]);
-%             if NodeTable.Lat(nn) < 10 || NodeTable.Lat(nn) > 13
-%                 if southdir < northdir
-%                     NodeTable.DTO(nn)=1;
-%                 else
-%                     NodeTable.DTO(nn)=2;
-%                 end
-%             else
-                if westdir < 2.5*eastdir
-                    NodeTable.DTO(nn)=1;
-                else
-                    NodeTable.DTO(nn)=2;
-                end
-%             end
-%             if southdir < northdir
-%                 NodeTable.DTO(nn)=1;
-%             else
-%                 NodeTable.DTO(nn)=2;
-%             end
-            
-%             if imindist == 1 || imindist == 4
-% %                 if (eastdir-westdir)/eastdir < 0.2
-% %                     NodeTable.DTO(nn)=2;
-% %                 elseif (northdir-southdir)/northdir < 0.2
-% %                     NodeTable.DTO(nn)=2;
-% %                 else
-%                     NodeTable.DTO(nn)=1;
-% %                 end
-%             else
-%                 if (westdir-eastdir)/westdir < 0.2
-% %                 if (westdir-eastdir)/westdir < 0.1
-%                     NodeTable.DTO(nn)=1;
-%                 elseif (southdir-northdir)/southdir < 0.2
-% %                 elseif (southdir-northdir)/southdir < 0.1
-%                     NodeTable.DTO(nn)=1;
-%                 else
-%                     NodeTable.DTO(nn)=2;
-%                 end
-%             end
         end
         
         %%% Initialize Interdiction agent
@@ -461,15 +452,21 @@ for erun=1:ERUNS
         % routepref(:,:,TSTART+1)=ADJ;
 %         margprofit=ADDVAL-CTRANS(:,:,TSTART);
         margval=zeros(nnodes,nnodes,TMAX);
-        for q=1:nnodes-1
+        for q=1:nnodes
+            if isempty(find(ADJ(q,:)==1,1)) == 1
+                continue
+            end
             margval(q,q+1:nnodes,TSTART)=PRICE(q+1:nnodes,TSTART)-...
                 PRICE(q,TSTART);
         end
         for nd=1:ndto
-            idto=(NodeTable.DTO == nd);
-            routepref(1,idto,TSTART+1)=(margval(1,idto)==max(margval(1,idto)));
+            idto=find(NodeTable.DTO == nd);
+            margvalset=idto(~ismember(idto,endnodeset));
+%             routepref(1,idto,TSTART+1)=(margval(1,idto)==max(margval(1,idto)));
+            routepref(1,idto,TSTART+1)=(margval(1,idto)==max(margval(1,margvalset)));
         end
-        routepref(:,nnodes,TSTART+1)=1;
+%         routepref(:,nnodes,TSTART+1)=1;
+        routepref(:,endnodeset,TSTART+1)=1;
         totslrisk(TSTART+1)=1;
         
         OWN=zeros(size(LANDSUIT));  % node agent land ownership
@@ -481,7 +478,11 @@ for erun=1:ERUNS
         
         % Output tables for flows(t) and interdiction prob(t-1)
         t=TSTART;
-        load init_flow
+        if extnetflag == 1
+            load init_flow_ext
+        else
+            load init_flow
+        end
         [rinit,cinit]=ind2sub([nnodes nnodes],find(FLOW(:,:,1) > 0));
         for w=1:length(rinit)
             MOV(rinit(w),cinit(w),1)=FLOW(rinit(w),cinit(w),1);
@@ -550,7 +551,11 @@ for erun=1:ERUNS
             %%
             MOV(:,1,t)=NodeTable.Stock(:);
             
-            for n=1:nnodes-1 %exclude end node
+%             for n=1:nnodes-1 %exclude end nodes
+            for n=1:nnodes %skip end nodes
+                if isempty(find(ADJ(n,:)==1,1)) == 1
+                    continue
+                end
                 %%%%%  Route cocaine shipmments %%%%%
                 STOCK(n,t)=STOCK(n,t-1)+STOCK(n,t);
                 TOTCPTL(n,t)=TOTCPTL(n,t-1)+TOTCPTL(n,t);
@@ -562,11 +567,9 @@ for erun=1:ERUNS
                     end
                     %             inei=zeros([],1);
                     if n == 1
-                        %                 if t >= 166
-                        %                     keyboard
-                        %                 end
                         inei=find(ADJ(n,:) == 1 & routepref(n,:,t) > 0);
-                        for nd=1:length(unique(NodeTable.DTO(2:nnodes-1)))
+%                         for nd=1:length(unique(NodeTable.DTO(2:nnodes-1)))
+                        for nd=1:length(unique(NodeTable.DTO(2:nnodes)))
                             if isempty(find(NodeTable.DTO(inei) == nd,1)) == 1
                                 idtombr=(NodeTable.DTO == nd);
                                 subinei=find(ADJ(n,idtombr) == 1 & routepref(n,idtombr,t) > 0);
@@ -578,15 +581,12 @@ for erun=1:ERUNS
                             end
                         end
                     else
-                        %                 inei=find(ADJ(n,:) == 1 & routepref(n,:,t) > 0 & ...
-                        %                     ((NodeTable.DTO' == NodeTable.DTO(n)) == 1 | ...
-                        %                     (NodeTable.DTO' == 0) == 1));
                         inei=find(ADJ(n,:) == 1 & routepref(n,:,t) > 0);
+%                         inei=inei(ismember(inei,[find(NodeTable.DTO == ...
+%                             NodeTable.DTO(n)); nnodes]));
                         inei=inei(ismember(inei,[find(NodeTable.DTO == ...
-                            NodeTable.DTO(n)); nnodes]));
+                            NodeTable.DTO(n)); endnodeset']));
                         if isempty(find(inei,1)) == 1
-                            %                     inei=find(ADJ(n,:) == 1 & routepref(n,:,t) == ...
-                            %                         max(routepref(n,NodeTable.DTO' == NodeTable.DTO(n),t)));
                             inei=find(ADJ(n,:) == 1 & routepref(n,:,t) == ...
                                 max(routepref(n,:,t)));
                             inei=inei(ismember(inei,[find(NodeTable.DTO == ...
@@ -822,14 +822,18 @@ for erun=1:ERUNS
             end
             
             % Reinforcement learning for successful routes
-            iactivenode=find(OUTFLOW(2:nnodes-1,t) > 0)+1;
+%             iactivenode=find(OUTFLOW(2:nnodes-1,t) > 0)+1;
+            iactivenode=find(OUTFLOW(2:nnodes,t) > 0)+1;
             avgflow=STOCK(iendnode,t)/length(iactivenode);
             
             activenodes=unique(cat(1,activeroute{:,t}));
             actedge=activeroute(:,t);
             
             % Calcuate updated marginal profit
-            for q=1:nnodes-1
+            for q=1:nnodes
+                if isempty(find(ADJ(q,:)==1,1))==1
+                    continue
+                end
                 margval(q,q+1:nnodes,t)=PRICE(q+1:nnodes,t)-PRICE(q,t);
             end
             %%%%%%%%% Route Optimization %%%%%%%%%%%
@@ -953,7 +957,7 @@ for erun=1:ERUNS
             NodeTable.Stock(1)=stock_0;
             NodeTable.Stock(nnodes)=0;
             
-            % Output tables for flows(t) and interdiction prob(t-1)
+            %%%Output tables for flows(t) and interdiction prob(t-1)
             [Tflow,Tintrd]=intrd_tables(FLOW,slsuccess,SLPROB,NodeTable,EdgeTable,t);
         end
         
@@ -989,7 +993,7 @@ for erun=1:ERUNS
             sltot(idt,:)=sum(sum(slevent(idto,:,1:TMAX),1));
         end
         t_firstmov=zeros(nnodes,1);
-        for n=2:nnodes-1
+        for n=2:nnodes
             if isempty(find(TOTCPTL(n,:)~=0,1)) == 1
                 continue
             else
