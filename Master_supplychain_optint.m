@@ -79,6 +79,7 @@ for erun=1:ERUNS
         % calon=CAmap.Lon;
         % cabox=CAmap.BoundingBox;
         caadmid1=cat(1,CAattr1.ADM1_CODE);
+        adm1_0=cat(1,CAattr1.ADM0_CODE);
         
         [CAcntr,CAcntrattr]=shaperead('D:\CentralAmerica\Vector\CAcentroids.shp','UseGeoCoords',...
             true);
@@ -224,7 +225,7 @@ for erun=1:ERUNS
         if suitflag == 1
             load network_file_RAT
         else
-            load network_file
+            load network_file_nodirect
         end
         
         nnodes=height(NodeTable);
@@ -342,7 +343,14 @@ for erun=1:ERUNS
             latlon1=repmat([NodeTable.Lat(j) NodeTable.Lon(j)],length(latlon2(:,1)),1);
             [d1km,d2km]=lldistkm(latlon1,latlon2);
             DIST(j,ADJ(j,:)==1)=d1km;
-            
+            if extnetflag == 1
+            % add distance for extended network
+                latlon1=repmat([NodeTable.Lat(1) NodeTable.Lon(1)],4,1);
+                latlon2=[NodeTable.Lat([156; 161; 162; 163]) ... 
+                    NodeTable.Lon([156; 161; 162; 163])];
+                [d1km,d2km]=lldistkm(latlon1,latlon2);
+                DIST(1,[156; 161; 162; 163])=d1km;
+            end
             %Create added value matrix (USD) and price per node
             ADDVAL(j,ADJ(j,:)==1)=deltavalue.*DIST(j,ADJ(j,:)==1);
             if j == 1
@@ -409,8 +417,11 @@ for erun=1:ERUNS
         % Create S&L probability layer
         routepref=zeros(nnodes,nnodes,TMAX);   % weighting by network agent of successful routes
         slevent=zeros(nnodes,nnodes,TMAX);  % occurrence of S&L event
+        slnodes=cell(1,TMAX);
         slsuccess=zeros(nnodes,nnodes,TMAX);    % volume of cocaine seized in S&L events
         slvalue=zeros(nnodes,nnodes,TMAX);    % value of cocaine seized in S&L events
+        slcount_edges=zeros(1,TMAX);
+        slcount_vol=zeros(1,TMAX);
 %         intrdevent=zeros(nnodes,TMAX);
         INTRDPROB=zeros(nnodes,TMAX);
         SLPROB=zeros(nnodes,nnodes,TMAX);   % dynamic probability of S&L event per edge
@@ -504,8 +515,9 @@ for erun=1:ERUNS
             %%
             %%%% Check for interdiction events from optimization model
             if optSLflag(erun) == 1
-                [intrdct_events]=optimize_interdiction(t,ADJ);
+                [intrdct_events,intrdct_nodes]=optimize_interdiction(t,ADJ);
                 slevent(:,:,t)=intrdct_events;
+                slnodes(t)=mat2cell(intrdct_nodes,size(intrdct_nodes,1),size(intrdct_nodes,2));
             else
                 islevent=[];
                 subslevent=slevent(:,:,t);
@@ -556,6 +568,10 @@ for erun=1:ERUNS
                 if isempty(find(ADJ(n,:)==1,1)) == 1
                     continue
                 end
+                if ismember(n,endnodeset) == 1
+                    continue
+                end
+                    
                 %%%%%  Route cocaine shipmments %%%%%
                 STOCK(n,t)=STOCK(n,t-1)+STOCK(n,t);
                 TOTCPTL(n,t)=TOTCPTL(n,t-1)+TOTCPTL(n,t);
@@ -589,8 +605,10 @@ for erun=1:ERUNS
                         if isempty(find(inei,1)) == 1
                             inei=find(ADJ(n,:) == 1 & routepref(n,:,t) == ...
                                 max(routepref(n,:,t)));
+%                             inei=inei(ismember(inei,[find(NodeTable.DTO == ...
+%                                 NodeTable.DTO(n)); nnodes]));
                             inei=inei(ismember(inei,[find(NodeTable.DTO == ...
-                                NodeTable.DTO(n)); nnodes]));
+                                NodeTable.DTO(n)); endnodeset']));
                         end
                     end
                     %%% Procedure for selecting routes based on expected profit %%%
@@ -670,24 +688,38 @@ for erun=1:ERUNS
                     FLOW(n,inei,t)=min(WGHT(n,inei)./sum(WGHT(n,inei)).*...
                         STOCK(n,t),CPCTY(n,inei));
 %                     FLOW(n,inei,t)=min(WGHT(n,inei).*STOCK(n,t),CPCTY(n,inei));
-                    
+                    OUTFLOW(n,t)=sum(FLOW(n,inei,t));
+                    STOCK(n,t)=STOCK(n,t)-OUTFLOW(n,t);
+                    nodecosts=sum(FLOW(n,inei,t).*CTRANS(n,inei,t));
                     % Check for S%L event
                     if isempty(find(ismember(find(slevent(n,:,t)),inei),1)) == 0
-                        isl=(slevent(n,inei,t)==1);
-                        slsuccess(n,inei(isl),t)=FLOW(n,inei(isl),t);
-                        slvalue(n,inei(isl),t)=FLOW(n,inei(isl),t).*PRICE(inei(isl),t)';
-                        if slsuccess(n,inei(isl),t) == 0
-                            slevent(n,inei(isl),t)=0;
+                        isl=find(slevent(n,inei,t)==1);
+                        intcpt=NodeTable.pintcpt(inei(isl));
+%                         slsuccess(n,inei(isl),t)=FLOW(n,inei(isl),t);
+%                         slvalue(n,inei(isl),t)=FLOW(n,inei(isl),t).*PRICE(inei(isl),t)';
+                        %%% interception probability
+                        p_int=rand(length(intcpt),1);
+%                         p_int=zeros(length(intcpt),1);
+                        for p=1:length(intcpt)
+                            if p_int(p) <= intcpt(p)
+                                slsuccess(n,inei(isl(p)),t)=FLOW(n,inei(isl(p)),t);
+                                slvalue(n,inei(isl(p)),t)=FLOW(n,inei(isl(p)),t).*PRICE(inei(isl(p)),t)';
+                                % slsuccess(n,inei(isl),t)=intcpt(inei(isl)).*FLOW(n,inei(isl),t);
+                                % slvalue(n,inei(isl),t)=(intcpt(inei(isl)).*FLOW(n,inei(isl),t)).*PRICE(inei(isl),t)';
+                                FLOW(n,inei(isl(p)),t)=0;     % remove from trafficking route due to S&L event
+                                % FLOW(n,inei(isl),t)=(1-intcpt(inei(isl))).*FLOW(n,inei(isl),t);
+                            else
+                                slsuccess(n,inei(isl(p)),t)=0;
+                                slvalue(n,inei(isl(p)),t)=0;
+%                                 slevent(n,inei(isl(p)),t)=0;
+%                                 isl(inei(isl(p)))=0;
+                            end
                         end
-                        OUTFLOW(n,t)=sum(FLOW(n,inei,t));
-                        STOCK(n,t)=STOCK(n,t)-OUTFLOW(n,t);
-                        nodecosts=sum(FLOW(n,inei,t).*CTRANS(n,inei,t));
-                        %                 TOTCPTL(n,t)=TOTCPTL(n,t)-sum(FLOW(n,inei,t).*CTRANS(n,inei));
-                        FLOW(n,inei(isl),t)=0;     % remove from trafficking route due to S&L event
+%                         if slsuccess(n,inei(isl),t) == 0
+%                             slevent(n,inei(isl),t)=0;
+%                         end
                         STOCK(inei,t)=STOCK(inei,t)+FLOW(n,inei,t)';
-                        %                 TOTCPTL(n,t)=TOTCPTL(n,t)+sum(FLOW(n,inei,t).*ADDVAL(n,inei));
                         noderevenue=sum(FLOW(n,inei,t).*PRICE(inei,t)');
-                        %                 TOTCPTL(n,t)=TOTCPTL(n,t)+sum(FLOW(n,inei,t).*PRICE(inei,t)');
                         TOTCPTL(inei,t)=TOTCPTL(inei,t)-(FLOW(n,inei,t)'.*PRICE(inei,t));
                         ICPTL(n,t)=rentcap*sum(FLOW(n,inei).*ADDVAL(n,inei));
                         MARGIN(n,t)=noderevenue-nodecosts+min(TOTCPTL(n,t),0);
@@ -706,8 +738,8 @@ for erun=1:ERUNS
                             TOTCPTL(n,t)=TOTCPTL(n,t)+RENTCAP(n,t);
                         end
                     else
-                        OUTFLOW(n,t)=sum(FLOW(n,inei,t));
-                        STOCK(n,t)=STOCK(n,t)-OUTFLOW(n,t);
+%                         OUTFLOW(n,t)=sum(FLOW(n,inei,t));
+%                         STOCK(n,t)=STOCK(n,t)-OUTFLOW(n,t);
                         STOCK(inei,t)=STOCK(inei,t)+FLOW(n,inei,t)';
                         nodecosts=sum(FLOW(n,inei,t).*CTRANS(n,inei,t));
                         noderevenue=sum(FLOW(n,inei,t).*PRICE(inei,t)');
@@ -823,7 +855,7 @@ for erun=1:ERUNS
             
             % Reinforcement learning for successful routes
 %             iactivenode=find(OUTFLOW(2:nnodes-1,t) > 0)+1;
-            iactivenode=find(OUTFLOW(2:nnodes,t) > 0)+1;
+            iactivenode=find(OUTFLOW(2:nnodes,t) > 0);
             avgflow=STOCK(iendnode,t)/length(iactivenode);
             
             activenodes=unique(cat(1,activeroute{:,t}));
@@ -839,13 +871,15 @@ for erun=1:ERUNS
             %%%%%%%%% Route Optimization %%%%%%%%%%%
             for dt=1:ndto
                 idto=find(NodeTable.DTO == dt);
-                DTOBDGT(dt,t)=STOCK(nnodes,t)*PRICE(nnodes,t); %total DTO funds for expansion/viability
+%                 DTOBDGT(dt,t)=STOCK(nnodes,t)*PRICE(nnodes,t); 
+                DTOBDGT(dt,t)=sum(STOCK(endnodeset,t).*PRICE(endnodeset,t)); %total DTO funds for expansion/viability
                 %         if t > 3 && isempty(find(DTOBDGT(dt,t-3:t) > 0,1)) == 1
                 %             dtocutflag(dt)=1;
                 %             display('dto cut')
                 %             keyboard
                 %         end
-                dtorefvec=[1; idto; nnodes];
+%                 dtorefvec=[1; idto; nnodes];
+                dtorefvec=[1; idto; mexnode];
                 subnnodes=length(idto);
                 subroutepref=routepref(dtorefvec,dtorefvec,t);
                 subactivenodes=activenodes(ismember(activenodes,idto));
@@ -953,9 +987,17 @@ for erun=1:ERUNS
                 STOCK(1,t+1)=(stock_max*stock_0*exp(prodgrow(erun)*floor(t/12)))/...
                     (stock_max+stock_0*(exp(prodgrow(erun)*floor(t/12))-1));
             end
-            STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step
+%             STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step
+%             NodeTable.Stock(1)=stock_0;
+%             NodeTable.Stock(nnodes)=0;
+            
+            STOCK(endnodeset,t+1)=0;    %remove stock at end node for next time step
             NodeTable.Stock(1)=stock_0;
-            NodeTable.Stock(nnodes)=0;
+            NodeTable.Stock(endnodeset)=0;
+            
+            slcount_edges(t)=length(find(slsuccess(:,:,t) > 0));
+            h_slsuccess=slsuccess(:,:,t);
+            slcount_vol(t)=sum(h_slsuccess(h_slsuccess > 0));
             
             %%%Output tables for flows(t) and interdiction prob(t-1)
             [Tflow,Tintrd]=intrd_tables(FLOW,slsuccess,SLPROB,NodeTable,EdgeTable,t);
@@ -998,14 +1040,15 @@ for erun=1:ERUNS
                 continue
             else
                 t_firstmov(n)=find(TOTCPTL(n,:) ~= 0,1,'first');
+%                 t_firstmov(n)=find(STOCK(n,:)>0,1,'first');
             end
         end
-        t_firstmov(nnodes)=find(STOCK(nnodes,:)>0,1,'first');
+%         t_firstmov(nnodes)=find(STOCK(nnodes,:)>0,1,'first');
         
-        savefname=sprintf('supplychain_results_optint_032520_%d_%d',erun,mrun);
+        savefname=sprintf('supplychain_results_optint_060920_%d_%d',erun,mrun);
         parsave_illicit_supplychain(savefname,EdgeTable,NodeTable,MOV,FLOW,OUTFLOW,...
             CTRANS,TOTCPTL,DTOBDGT,slsuccess,activeroute,STOCK,RISKPREM,slperevent,slval,...
-            nactnodes,sltot,t_firstmov,PRICE);
+            nactnodes,sltot,t_firstmov,PRICE,slcount_edges,slcount_vol,slnodes);
         
     end
 end

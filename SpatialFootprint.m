@@ -1,25 +1,47 @@
-cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_full_021618
-load supplychain_results_021618_1_6.mat
+% cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_full_021618
+cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\model_results\SupplyChain_optint_032520
+% load supplychain_results_021618_1_6.mat
+load supplychain_results_optint_060420_1_1.mat
 
-[CAadm0,CAattr0]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\GADM\g2015_2014_0\CAadm0.shp',...
-            'UseGeoCoords',true);
-[CAadm1,CAattr1]=shaperead('C:\Users\nrmagliocca\Box Sync\Data Drive\CentralAmericaData\GADM\g2015_2014_1\CAadm1.shp',...
-            'UseGeoCoords',true);
-        
+% [CAadm0,CAattr0]=shaperead('D:\CentralAmerica\GADM\g2015_2014_0\CAadm0.shp',...
+%             'UseGeoCoords',true);
+% [CAfull,CAfullattr]=shaperead('D:\CentralAmerica\GADM\CA_full_theater_0.shp','UseGeoCoords',...
+%             true);
+[CAfull,CAfullattr]=shaperead('D:\CentralAmerica\GADM\CA_full_theater_0_simple_01.shp','UseGeoCoords',...
+            true);
+
+[CAadm1,CAattr1]=shaperead('D:\CentralAmerica\GADM\g2015_2014_1\CAadm1.shp',...
+            'UseGeoCoords',true); 
+% lon_west=min(lon_list);
+% lon_east=max(lon_list);
+% lat_north=max(lat_list);
+% lat_south=min(lat_list);
+lon_west=min(NodeTable.Lon)-5;
+lon_east=max(NodeTable.Lon)+5;
+lat_south=min(NodeTable.Lat)-5;
+lat_north=max(NodeTable.Lat)+5;
+latlimit=[lat_south lat_north];
+lonlimit=[lon_west lon_east];
 TMAX=180;
 NNODES=size(activeroute,1);
 nnodes=NNODES;
 
-cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\NarcoABM
+% cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\NarcoABM
 %%% Trafficking movie
-writerObj = VideoWriter('trafficking_risk_dtos_long_fast.mp4','MPEG-4');
+writerObj = VideoWriter('intopt_MCI_3_long_fast_2.mp4','MPEG-4');
 writerObj.FrameRate=10;
 open(writerObj);
 
 hmov=figure;
 set(hmov,'color','white')
-set(hmov,'Position',[100 300 900 700])
-H=geoshow(CAadm0,'FaceColor',[1 1 1],'EdgeColor',[0.7 0.7 0.7]);
+set(hmov,'Position',[100 10 860 680])
+% H=geoshow(CAadm0,'FaceColor',[1 1 1],'EdgeColor',[0.7 0.7 0.7]);
+H=geoshow(CAfull,'FaceColor',[1 1 1],'EdgeColor',[0.7 0.7 0.7]);
+xlim([-98 -68])
+ylim([-5 20])
+% worldmap(latlimit,lonlimit);
+% load coastlines
+% geoshow(coastlat,coastlon);
 hold on
 idto1=(NodeTable.DTO == 1);
 idto2=(NodeTable.DTO == 2);
@@ -124,7 +146,8 @@ for tt=1:TMAX
 %             if n == 1
                 isend=find(MOV(:,1,tt)> 0);
                 for s=1:length(isend)
-                    flowval=max(ceil(MOV(isend(s),1,tt)/10),4);
+%                     flowval=max(ceil(MOV(isend(s),1,tt)/10),4);
+                    flowval=max(ceil(MOV(isend(s),1,tt)/3661),4);
                     h_flow(s)=plot(NodeTable.Lon(isend(s)),NodeTable.Lat(isend(s)),...
                         'o','MarkerSize',flowval,'MarkerEdgeColor','red','MarkerFaceColor','red');
                 end
@@ -135,7 +158,8 @@ for tt=1:TMAX
                 for j=1:length(utakers)
                     isend=find(MOV(:,utakers(j),tt) > 0);
                     for s=1:length(isend)
-                    flowval=max(ceil(MOV(isend(s),utakers(j),tt)/10),4);
+%                     flowval=max(ceil(MOV(isend(s),utakers(j),tt)/10),4);
+                    flowval=max(ceil(MOV(isend(s),utakers(j),tt)/3661),4);
                     h_flow(s)=plot(NodeTable.Lon(isend(s)),NodeTable.Lat(isend(s)),...
                         'o','MarkerSize',flowval,'MarkerEdgeColor','red','MarkerFaceColor','red');
                     end

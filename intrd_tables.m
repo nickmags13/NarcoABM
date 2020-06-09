@@ -5,11 +5,8 @@ varTypes={'double','double','double','double'};
 Tflow=table('Size',[height(EdgeTable) 4],'VariableTypes',varTypes,...
     'VariableNames',{'End_Node','Start_Node','IntitFlow','DTO'});
 startFLOW=FLOW(:,:,t)+slsuccess(:,:,t);
-% iflow=find(startFLOW > 0);
-% [snd,rec]=ind2sub(size(startFLOW),iflow);
-% Tflow(1:length(rec),1)=array2table(rec);
-% Tflow(:,2)=array2table(snd);
-% Tflow(:,3)=array2table(startFLOW(iflow));
+% intcptFLOW=FLOW(:,:,t).*repmat(NodeTable.pintcpt',height(NodeTable),1);
+% startFLOW=intcptFLOW(:,:,t)+slsuccess(:,:,t);
 
 Tintrd=table('Size',[height(EdgeTable) 3],'VariableTypes',{'double','double','double'},...
     'VariableNames',{'End_Node','Start_Node','IntitProb'});
@@ -42,7 +39,7 @@ else
     t2=floor(t/10);
 end
 t3=mod(t,10);
-cd C:\Users\nrmagliocca\'Google Drive'\NSF_EAGER_Models
+cd C:\Users\nrmagliocca\'Google Drive'\NSF_EAGER_Models\ABM_Results
 writetable(Tflow,sprintf('%d%d%d_SL_3_MCI.txt',t1,t2,t3))
 writetable(Tintrd,sprintf('%d%d%d_SLPROB_3_MCI.txt',t1,t2,t3)) %apply to next time step's interdiction actions
 cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\NarcoABM

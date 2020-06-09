@@ -3,8 +3,8 @@ function [sl_max,sl_min,baserisk,riskmltplr,startstock,sl_learn,rt_learn,...
     timewght,locthink,expandmax,empSLflag,optSLflag,suitflag,extnetflag]=load_expmntl_parms(ERUNS)
     
 empSLflag=zeros(1,ERUNS);    %determines is empirical (1) or artificial (0) S&L schedule used
-optSLflag=zeros(1,ERUNS);   %use interdiction events from optimization model (1)
-% optSLflag=ones(1,ERUNS);
+% optSLflag=zeros(1,ERUNS);   %use interdiction events from optimization model (1)
+optSLflag=ones(1,ERUNS);
 % extnetflag=zeros(1,ERUNS);  %use basic trafficking network (0) or used extended routes network (1)
 extnetflag=ones(1,ERUNS);
 suitflag=zeros(1,ERUNS);    % use RAT suitability (1) or build from covariates (0)

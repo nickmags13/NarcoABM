@@ -15,6 +15,7 @@ ext_NodeTable.DeptCode(inn1)=3;
 ext_NodeTable(inn1,7:width(ext_NodeTable))=ext_NodeTable(nnodes,7:width(ext_NodeTable));
 ext_NodeTable.DTO(inn1)=2;
 ext_NodeTable.CoastDist(inn1)=0;
+ext_NodeTable.pintcpt(inn1)=0.01;
 
 %north of Galapagos
 inn2=nnodes+2;
@@ -28,6 +29,7 @@ ext_NodeTable.DeptCode(inn2)=3;
 ext_NodeTable(inn2,7:width(ext_NodeTable))=ext_NodeTable(nnodes,7:width(ext_NodeTable));
 ext_NodeTable.DTO(inn2)=1;
 ext_NodeTable.CoastDist(inn2)=0;
+ext_NodeTable.pintcpt(inn2)=0.01;
 
 %south of Galapagos
 inn3=nnodes+3;
@@ -41,6 +43,7 @@ ext_NodeTable.DeptCode(inn3)=3;
 ext_NodeTable(inn3,7:width(ext_NodeTable))=ext_NodeTable(nnodes,7:width(ext_NodeTable));
 ext_NodeTable.DTO(inn3)=1;
 ext_NodeTable.CoastDist(inn3)=0;
+ext_NodeTable.pintcpt(inn3)=0.01;
 
 %%% add end nodes
 %Dominican Rep.
@@ -55,6 +58,7 @@ ext_NodeTable.DeptCode(inn4)=3;
 ext_NodeTable(inn4,7:width(ext_NodeTable))=ext_NodeTable(nnodes,7:width(ext_NodeTable));
 ext_NodeTable.DTO(inn4)=2;
 ext_NodeTable.CoastDist(inn4)=0;
+ext_NodeTable.pintcpt(inn4)=0.01;
 
 %Yucatan
 inn5=nnodes+5;
@@ -68,6 +72,7 @@ ext_NodeTable.DeptCode(inn5)=3;
 ext_NodeTable(inn5,7:width(ext_NodeTable))=ext_NodeTable(nnodes,7:width(ext_NodeTable));
 ext_NodeTable.DTO(inn5)=2;
 ext_NodeTable.CoastDist(inn5)=0;
+ext_NodeTable.pintcpt(inn5)=0;
 
 %Chiapas
 inn6=nnodes+6;
@@ -81,6 +86,7 @@ ext_NodeTable.DeptCode(inn6)=3;
 ext_NodeTable(inn6,7:width(ext_NodeTable))=ext_NodeTable(nnodes,7:width(ext_NodeTable));
 ext_NodeTable.DTO(inn6)=1;
 ext_NodeTable.CoastDist(inn6)=0;
+ext_NodeTable.pintcpt(inn6)=0;
 
 %Oaxaca
 inn7=nnodes+7;
@@ -94,6 +100,7 @@ ext_NodeTable.DeptCode(inn7)=3;
 ext_NodeTable(inn7,7:width(ext_NodeTable))=ext_NodeTable(nnodes,7:width(ext_NodeTable));
 ext_NodeTable.DTO(inn7)=1;
 ext_NodeTable.CoastDist(inn7)=0;
+ext_NodeTable.pintcpt(inn7)=0;
 
 %%% Add custom edges
 %source to Carib
@@ -151,4 +158,10 @@ ine11=height(EdgeTable)+11;
 ext_EdgeTable.EndNodes(ine11,:)=[ext_NodeTable.ID(inn4) 156];
 ext_EdgeTable(ine11,2:width(ext_EdgeTable))=ext_EdgeTable(156,2:width(ext_EdgeTable));
 
+% % Add Carib to HND and GT nodes
+% deptlist=caadmid1(adm1_0 == 111 | adm1_0 == 103);   %GT and HND
+% iadd=find(ismember(NodeTable.DeptCode,deptlist)==1);
+% ine12=height(EdgeTable)+12:height(EdgeTable)+12+length(iadd);
+% ext_EdgeTable.EndNodes(ine12,:)=[ones(length(iadd),1)*ext_NodeTable.ID(inn1) NodeTable.ID(iadd)];
+% ext_EdgeTable(ine12,2:width(ext_EdgeTable))=ext_EdgeTable(156,2:width(ext_EdgeTable));
 warning('on')

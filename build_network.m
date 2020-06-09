@@ -150,7 +150,8 @@ hitrngstate=rand(height(NodeTable),1);
 
 for k=1:height(NodeTable)-1
     if k == 1
-        newedges=2:height(NodeTable);
+%         newedges=2:height(NodeTable);
+        newedges=2:height(NodeTable)-1; %eliminate direct producer to consumer edge
         nodechk=ismember(newedges,EdgeTable.EndNodes(EdgeTable.EndNodes(:,1)==k,2)); %check for redundant edges
         newedges=newedges(~nodechk);
         weights=ones(length(newedges),1);
@@ -178,7 +179,8 @@ end
 
 % Make sure all nodes connect to end node
 iendnode=NodeTable.ID(NodeTable.DeptCode == 2);
-newedges=1:height(NodeTable)-1;
+% newedges=1:height(NodeTable)-1;
+newedges=2:height(NodeTable)-1; %eliminate direct producer to consumer edge
 nodechk=ismember(newedges,EdgeTable.EndNodes(EdgeTable.EndNodes(:,2)==iendnode,1)); %check for redundant edges
 newedges=newedges(~nodechk);
 weights=ones(length(newedges),1);
@@ -188,3 +190,12 @@ cpcty=1000000*ones(length(newedges),1);
 EdgeTable=table([EdgeTable.EndNodes; newedges' iendnode*ones(length(newedges),1)],...
     [EdgeTable.Weight; weights],[EdgeTable.Flows; flows],[EdgeTable.Capacity; cpcty],...
     'VariableNames',{'EndNodes' 'Weight' 'Flows' 'Capacity'});
+
+% Calculate interception probability based on number of edges
+p_intcpt=zeros(height(NodeTable),1);
+for q=2:height(NodeTable)
+%     n_out=length(find(EdgeTable.EndNodes(:,1) == q));
+    n_in=length(find(EdgeTable.EndNodes(:,2) == q));
+    p_intcpt(q)=1/n_in;
+end
+NodeTable.pintcpt=p_intcpt;
