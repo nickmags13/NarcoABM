@@ -988,12 +988,9 @@ for erun=1:ERUNS
             %         riskmltplr(erun))*PRICE(nnodes,t);
             PRICE(:,t+1)=PRICE(:,t);
             if growthmdl(erun) == 1
-%                 STOCK(1,t+1)=stock_0+(prodgrow(erun)*ceil((t-TSTART)/12));    %additional production to enter network next time step
-                STOCK(1,t+1)=STOCK(1,t)+stock_0+(prodgrow(erun)*ceil((t-TSTART)/12));
+                STOCK(1,t+1)=stock_0+(prodgrow(erun)*ceil((t-TSTART)/12));    %additional production to enter network next time step
             elseif growthmdl(erun) == 2
-%                 STOCK(1,t+1)=(stock_max*stock_0*exp(prodgrow(erun)*floor(t/12)))/...
-%                     (stock_max+stock_0*(exp(prodgrow(erun)*floor(t/12))-1));
-                STOCK(1,t+1)=STOCK(1,t)+(stock_max*stock_0*exp(prodgrow(erun)*floor(t/12)))/...
+                STOCK(1,t+1)=(stock_max*stock_0*exp(prodgrow(erun)*floor(t/12)))/...
                     (stock_max+stock_0*(exp(prodgrow(erun)*floor(t/12))-1));
             end
 %             STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step

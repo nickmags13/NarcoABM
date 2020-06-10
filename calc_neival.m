@@ -67,23 +67,27 @@ end
 rankroute=sortrows([rtpref'.*valuex p_sl' q_node' iset' dtonei totcpcty'],-1);  %rank trafficking routes by salient payoff
 dtos=unique(dtonei(dtonei~=0));
 if length(dtos) > 1
-    dtostock=floor(totstock/length(dtos));
+%     dtostock=floor(totstock/length(dtos));
     icut=[];
     for j=1:length(dtos)
         idto=find(rankroute(:,5) == dtos(j));
         if profmdl == 1
             if isempty(find(valuex(dtonei == dtos(j)) > 0,1)) == 1
 %                 [~,subicut]=min(rankroute(idto,2),[],1);
-                riskrank=sortrows(rankroute,-2);
-                subicut=find(cumsum(riskrank(idto,6)) <= dtostock);
+%                 riskrank=sortrows(rankroute,-2);
+                subicut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
             elseif isempty(find(rankroute(idto,1) > 0,1)) == 1
 %                 subicut=find(rankroute(idto,1) >= 0);
-%                 valcut=find(rankroute(idto,1) >= 0);
-%                 volcut=find(cumsum(rankroute(idto,6)) <= dtostock);
-                subicut=find(rankroute(idto,1) >= 0 & cumsum(rankroute(idto,6)) <= dtostock);
+                volcut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
+                valcut=find(rankroute(idto,1) >= 0);
+                subicut=ismember(valcut,volcut);
+%                 subicut=find(rankroute(idto,1) >= 0 & cumsum(rankroute(idto,6)) <= totstock);
             else
 %                 subicut=find(rankroute(idto,1) > 0);
-                subicut=find(rankroute(idto,1) > 0 & cumsum(rankroute(idto,6)) <= dtostock);
+%                 subicut=find(rankroute(idto,1) > 0 & cumsum(rankroute(idto,6)) <= totstock);
+                volcut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
+                valcut=find(rankroute(idto,1) > 0);
+                subicut=ismember(valcut,volcut);
             end
             if cutflag(dtos(j)) == 1
                 subicut=[];
@@ -92,14 +96,20 @@ if length(dtos) > 1
         elseif profmdl == 2
             if isempty(find(valuex(dtonei == dtos(j)) > 0,1)) == 1
 %                 [~,subicut]=min(rankroute(idto,2),[],1);
-                riskrank=sortrows(rankroute,-2);
-                subicut=find(cumsum(riskrank(idto,6)) <= dtostock);
+%                 riskrank=sortrows(rankroute,-2);
+                subicut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
             elseif isempty(find(cumsum(rankroute(idto,1)) > 0,1)) == 1
 %                 subicut=find(cumsum(rankroute(idto,1)) >= 0);
-                subicut=find(cumsum(rankroute(idto,1)) >= 0 & cumsum(rankroute(idto,6)) <= dtostock);
+%                 subicut=find(cumsum(rankroute(idto,1)) >= 0 & cumsum(rankroute(idto,6)) <= totstock);
+                volcut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
+                valcut=find(cumsum(rankroute(idto,1)) >= 0);
+                subicut=ismember(valcut,volcut);
             else
 %                 subicut=find(cumsum(rankroute(idto,1)) > 0);
-                subicut=find(cumsum(rankroute(idto,1)) > 0 & cumsum(rankroute(idto,6)) <= dtostock);
+%                 subicut=find(cumsum(rankroute(idto,1)) > 0 & cumsum(rankroute(idto,6)) <= totstock);
+                volcut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
+                valcut=find(cumsum(rankroute(idto,1)) > 0);
+                subicut=ismember(valcut,volcut);
             end
             if cutflag(dtos(j)) == 1
                 subicut=[];
@@ -117,26 +127,39 @@ else
     if profmdl == 1
         if isempty(find(valuex > 0,1)) == 1
 %             [~,icut]=min(rankroute(:,2),[],1);
-            riskrank=sortrows(rankroute,-2);
-            icut=find(riskrank(:,6) <= totstock);
+%             riskrank=sortrows(rankroute,-2);
+            icut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
         elseif isempty(find(rankroute(:,1) > 0,1)) == 1
-%             icut=find(rankroute(:,1) >= 0);
-            icut=find(rankroute(:,1) >= 0 & cumsum(rankroute(:,6)) <= totstock);
+            %             icut=find(rankroute(:,1) >= 0);
+%             icut=find(rankroute(:,1) >= 0 & cumsum(rankroute(:,6)) <= totstock);
+            volcut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
+            valcut=find(rankroute(:,1) >= 0);
+            icut=ismember(valcut,volcut);
         else
 %             icut=find(rankroute(:,1) > 0);
-            icut=find(rankroute(:,1) > 0 & cumsum(rankroute(:,6)) <= totstock);
+%             icut=find(rankroute(:,1) > 0 & cumsum(rankroute(:,6)) <= totstock);
+            volcut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
+            valcut=find(rankroute(:,1) > 0);
+            icut=ismember(valcut,volcut);
         end
     elseif profmdl == 2
         if isempty(find(valuex > 0,1)) == 1
 %             [~,icut]=min(rankroute(:,2),[],1);
-            riskrank=sortrows(rankroute,-2);
-            icut=find(cumsum(riskrank(:,6)) <= totstock);
+%             riskrank=sortrows(rankroute,-2);
+            icut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
+%             icut=find(cumsum(riskrank(:,6)) <= totstock);
         elseif isempty(find(cumsum(rankroute(:,1)) > 0,1)) == 1
 %             icut=find(cumsum(rankroute(:,1)) >= 0);
-            icut=find(cumsum(rankroute(:,1)) >= 0 & cumsum(rankroute(:,6)) <= totstock);
+%             icut=find(cumsum(rankroute(:,1)) >= 0 & cumsum(rankroute(:,6)) <= totstock);
+            volcut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
+            valcut=find(cumsum(rankroute(:,1)) >= 0);
+            icut=ismember(valcut,volcut);
         else
 %             icut=find(cumsum(rankroute(:,1)) > 0);
-            icut=find(cumsum(rankroute(:,1)) > 0 & cumsum(rankroute(:,6)) <= totstock);
+%             icut=find(cumsum(rankroute(:,1)) > 0 & cumsum(rankroute(:,6)) <= totstock);
+            volcut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
+            valcut=find(cumsum(rankroute(:,1)) > 0);
+            icut=ismember(valcut,volcut);
         end
     end
 end
