@@ -8,7 +8,9 @@ function newroutepref=optimizeroute_multidto(dtorefvec,subflow,supplyfit,expmax,
 iactiveedges=find(subflow > 0 | dtoslsuc > 0);
 [actrow,actcol]=ind2sub(size(subflow),iactiveedges);
 edgeparms=[subflow(iactiveedges) dtoSLRISK(iactiveedges) iactiveedges actrow actcol];
-if supplyfit <= losstolval  %need to consolidate supply chain
+% if supplyfit <= losstolval  %need to consolidate supply chain (not
+% capacity constaint)
+if supplyfit < losstolval  %need to consolidate supply chain
     edgesort=sortrows(edgeparms,-2); %refernce this array when removing edges
     iprimary=find(edgesort(:,4) == 1 & edgesort(:,5) ~= length(dtorefvec));   %primary movement
 %     edgecut=1:min(round(length(iactiveedges)*(1-(supplyfit/...
@@ -88,7 +90,7 @@ if supplyfit <= losstolval  %need to consolidate supply chain
            subroutepref(edgesort(edgecut(j),3))=0;
        end
    end
-elseif supplyfit > losstolval    %need to expand supply chain
+elseif supplyfit >= losstolval    %need to expand supply chain
 %     potnodes=allnodes(~ismember(allnodes,subactivenodes));
     potnodes=dtorefvec(~ismember(dtorefvec,[1; dtorefvec(unique(edgeparms(:,4:5)))]));
 %     edgeadd=1:min(max(ceil((supplyfit-losstolval)/supplyfit),1),length(potnodes));

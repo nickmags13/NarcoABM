@@ -226,6 +226,7 @@ for erun=1:ERUNS
             load network_file_RAT
         else
             load network_file_nodirect
+            EdgeTable.Capacity=200*ones(height(EdgeTable),1);
         end
         
         nnodes=height(NodeTable);
@@ -260,6 +261,8 @@ for erun=1:ERUNS
              EdgeTable=ext_EdgeTable;
              nnodes=height(NodeTable);
              endnodeset=[mexnode 161:nnodes];
+             EdgeTable.Capacity=200*ones(height(EdgeTable),1);
+             EdgeTable.Capacity(157:160)=2000*ones(4,1);
         end
         
         ADJ=zeros(nnodes);      % adjacency matrix for trafficking network
@@ -473,8 +476,8 @@ for erun=1:ERUNS
         for nd=1:ndto
             idto=find(NodeTable.DTO == nd);
             margvalset=idto(~ismember(idto,endnodeset));
-%             routepref(1,idto,TSTART+1)=(margval(1,idto)==max(margval(1,idto)));
-            routepref(1,idto,TSTART+1)=(margval(1,idto)==max(margval(1,margvalset)));
+%             routepref(1,idto,TSTART+1)=(margval(1,idto)==max(margval(1,margvalset)));
+            routepref(1,idto,TSTART+1)=margval(1,idto)./max(margval(1,margvalset));
         end
 %         routepref(:,nnodes,TSTART+1)=1;
         routepref(:,endnodeset,TSTART+1)=1;
@@ -628,10 +631,6 @@ for erun=1:ERUNS
                     profmdl=profitmodel(erun);
                     cutflag=dtocutflag(unique(dtonei(dtonei~=0)));
                     
-%                     if n == 239 && t>=51
-%                         display('is there an issue with weights? and fix rate of edge cutting')
-%                         keyboard
-%                     end
                     
                     % ********** Need to include check on each DTO's performance so
                     % that after some number of time steps (3?) without receiving
@@ -640,8 +639,8 @@ for erun=1:ERUNS
                     
                     %          [neipick,neivalue]=calc_neival(c_trans,p_sl,y_node,q_node,lccf,...
                     %              totstock,totcpcty,tslrisk);
-                    [neipick,neivalue,valuex]=calc_neival(c_trans,p_sl,...
-                        y_node,q_node,lccf,rtpref,tslrisk,dtonei,profmdl,cutflag);
+                    [neipick,neivalue,valuex]=calc_neival(c_trans,p_sl,y_node,...
+                        q_node,lccf,rtpref,tslrisk,dtonei,profmdl,cutflag,totcpcty,totstock);
                     
                     % With top-down route optimization
                     inei=inei(neipick);
@@ -694,7 +693,7 @@ for erun=1:ERUNS
                     % Check for S%L event
                     if isempty(find(ismember(find(slevent(n,:,t)),inei),1)) == 0
                         isl=find(slevent(n,inei,t)==1);
-                        intcpt=NodeTable.pintcpt(inei(isl));
+                        intcpt=min(10*NodeTable.pintcpt(inei(isl)),1);
 %                         slsuccess(n,inei(isl),t)=FLOW(n,inei(isl),t);
 %                         slvalue(n,inei(isl),t)=FLOW(n,inei(isl),t).*PRICE(inei(isl),t)';
                         %%% interception probability
@@ -927,6 +926,13 @@ for erun=1:ERUNS
                     supplyfit=0.1;
                 end
                 
+                %%% Route capacity constrains flow volumes, need to expand
+                %%% routes
+                idtonet=dtorefvec(~ismember(dtorefvec,endnodeset));
+                if sum(STOCK(idtonet,t)) >= max(dtoEdgeTable.Capacity)
+                    supplyfit=losstolval;   %triggers expansion of one route
+                end
+                
 %                 %call top-down route optimization
                 expmax=expandmax(erun);
                 newroutepref=optimizeroute_multidto(dtorefvec,subflow,supplyfit,expmax,...
@@ -982,9 +988,12 @@ for erun=1:ERUNS
             %         riskmltplr(erun))*PRICE(nnodes,t);
             PRICE(:,t+1)=PRICE(:,t);
             if growthmdl(erun) == 1
-                STOCK(1,t+1)=stock_0+(prodgrow(erun)*ceil((t-TSTART)/12));    %additional production to enter network next time step
+%                 STOCK(1,t+1)=stock_0+(prodgrow(erun)*ceil((t-TSTART)/12));    %additional production to enter network next time step
+                STOCK(1,t+1)=STOCK(1,t)+stock_0+(prodgrow(erun)*ceil((t-TSTART)/12));
             elseif growthmdl(erun) == 2
-                STOCK(1,t+1)=(stock_max*stock_0*exp(prodgrow(erun)*floor(t/12)))/...
+%                 STOCK(1,t+1)=(stock_max*stock_0*exp(prodgrow(erun)*floor(t/12)))/...
+%                     (stock_max+stock_0*(exp(prodgrow(erun)*floor(t/12))-1));
+                STOCK(1,t+1)=STOCK(1,t)+(stock_max*stock_0*exp(prodgrow(erun)*floor(t/12)))/...
                     (stock_max+stock_0*(exp(prodgrow(erun)*floor(t/12))-1));
             end
 %             STOCK(nnodes,t+1)=0;    %remove stock at end node for next time step
@@ -992,7 +1001,8 @@ for erun=1:ERUNS
 %             NodeTable.Stock(nnodes)=0;
             
             STOCK(endnodeset,t+1)=0;    %remove stock at end node for next time step
-            NodeTable.Stock(1)=stock_0;
+%             NodeTable.Stock(1)=stock_0;
+            NodeTable.Stock(1)=STOCK(1,t+1);
             NodeTable.Stock(endnodeset)=0;
             
             slcount_edges(t)=length(find(slsuccess(:,:,t) > 0));
@@ -1045,7 +1055,7 @@ for erun=1:ERUNS
         end
 %         t_firstmov(nnodes)=find(STOCK(nnodes,:)>0,1,'first');
         
-        savefname=sprintf('supplychain_results_optint_060920_%d_%d',erun,mrun);
+        savefname=sprintf('supplychain_results_optint_061020_%d_%d',erun,mrun);
         parsave_illicit_supplychain(savefname,EdgeTable,NodeTable,MOV,FLOW,OUTFLOW,...
             CTRANS,TOTCPTL,DTOBDGT,slsuccess,activeroute,STOCK,RISKPREM,slperevent,slval,...
             nactnodes,sltot,t_firstmov,PRICE,slcount_edges,slcount_vol,slnodes);

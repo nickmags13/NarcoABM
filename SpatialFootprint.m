@@ -1,7 +1,7 @@
 % cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_full_021618
-cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\model_results\SupplyChain_optint_032520
+cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\model_results\SupplyChain_optint_060920
 % load supplychain_results_021618_1_6.mat
-load supplychain_results_optint_060420_1_1.mat
+load supplychain_results_optint_060920_1_1.mat
 
 % [CAadm0,CAattr0]=shaperead('D:\CentralAmerica\GADM\g2015_2014_0\CAadm0.shp',...
 %             'UseGeoCoords',true);
@@ -95,6 +95,8 @@ for tt=1:TMAX
         end
         
         % plot interdiction
+        h_slnodes=plot(NodeTable.Lon(slnodes{tt}),NodeTable.Lat(slnodes{tt}),...
+            '^','MarkerSize',5,'MarkerEdgeColor','k','MarkerFaceColor','c');
         if isempty(find(slsuccess(:,:,tt)>0,1)) == 0
             [ir,ic]=ind2sub(size(slsuccess(:,:,1)),find(slsuccess(:,:,tt)>0));
             for ii=1:length(ir)
@@ -208,6 +210,7 @@ for tt=1:TMAX
 %             end
 %         end
         delete(h_edge)
+        delete(h_slnodes)
 %         frame = getframe(hmov);
 %         writeVideo(writerObj,frame);
 %         if exist('h_edge') == 1

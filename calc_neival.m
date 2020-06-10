@@ -1,5 +1,5 @@
 function [neipick,neivalue,valuex]=calc_neival(c_trans,p_sl,y_node,q_node,lccf,...
-    rtpref,tslrisk,dtonei,profmdl,cutflag)
+    rtpref,tslrisk,dtonei,profmdl,cutflag,totcpcty,totstock)
 
 pay_noevent=zeros(length(c_trans),1);
 pay_event=zeros(length(c_trans),1);
@@ -64,19 +64,26 @@ end
 % icut=find(cumsum(rankroute(:,2)) <= totstock);  % select route based on total capcity
 
 %%% Selection based on maximize profits while less than average S&L risk
-rankroute=sortrows([rtpref'.*valuex p_sl' q_node' iset' dtonei],-1);  %rank trafficking routes by salient payoff
+rankroute=sortrows([rtpref'.*valuex p_sl' q_node' iset' dtonei totcpcty'],-1);  %rank trafficking routes by salient payoff
 dtos=unique(dtonei(dtonei~=0));
 if length(dtos) > 1
+    dtostock=floor(totstock/length(dtos));
     icut=[];
     for j=1:length(dtos)
         idto=find(rankroute(:,5) == dtos(j));
         if profmdl == 1
             if isempty(find(valuex(dtonei == dtos(j)) > 0,1)) == 1
-                [~,subicut]=min(rankroute(idto,2),[],1);
+%                 [~,subicut]=min(rankroute(idto,2),[],1);
+                riskrank=sortrows(rankroute,-2);
+                subicut=find(cumsum(riskrank(idto,6)) <= dtostock);
             elseif isempty(find(rankroute(idto,1) > 0,1)) == 1
-                subicut=find(rankroute(idto,1) >= 0);
+%                 subicut=find(rankroute(idto,1) >= 0);
+%                 valcut=find(rankroute(idto,1) >= 0);
+%                 volcut=find(cumsum(rankroute(idto,6)) <= dtostock);
+                subicut=find(rankroute(idto,1) >= 0 & cumsum(rankroute(idto,6)) <= dtostock);
             else
-                subicut=find(rankroute(idto,1) > 0);
+%                 subicut=find(rankroute(idto,1) > 0);
+                subicut=find(rankroute(idto,1) > 0 & cumsum(rankroute(idto,6)) <= dtostock);
             end
             if cutflag(dtos(j)) == 1
                 subicut=[];
@@ -84,11 +91,15 @@ if length(dtos) > 1
             icut=[icut; idto(subicut)];
         elseif profmdl == 2
             if isempty(find(valuex(dtonei == dtos(j)) > 0,1)) == 1
-                [~,subicut]=min(rankroute(idto,2),[],1);
+%                 [~,subicut]=min(rankroute(idto,2),[],1);
+                riskrank=sortrows(rankroute,-2);
+                subicut=find(cumsum(riskrank(idto,6)) <= dtostock);
             elseif isempty(find(cumsum(rankroute(idto,1)) > 0,1)) == 1
-                subicut=find(cumsum(rankroute(idto,1)) >= 0);
+%                 subicut=find(cumsum(rankroute(idto,1)) >= 0);
+                subicut=find(cumsum(rankroute(idto,1)) >= 0 & cumsum(rankroute(idto,6)) <= dtostock);
             else
-                subicut=find(cumsum(rankroute(idto,1)) > 0);
+%                 subicut=find(cumsum(rankroute(idto,1)) > 0);
+                subicut=find(cumsum(rankroute(idto,1)) > 0 & cumsum(rankroute(idto,6)) <= dtostock);
             end
             if cutflag(dtos(j)) == 1
                 subicut=[];
@@ -105,19 +116,27 @@ if length(dtos) > 1
 else
     if profmdl == 1
         if isempty(find(valuex > 0,1)) == 1
-            [~,icut]=min(rankroute(:,2),[],1);
+%             [~,icut]=min(rankroute(:,2),[],1);
+            riskrank=sortrows(rankroute,-2);
+            icut=find(riskrank(:,6) <= totstock);
         elseif isempty(find(rankroute(:,1) > 0,1)) == 1
-            icut=find(rankroute(:,1) >= 0);
+%             icut=find(rankroute(:,1) >= 0);
+            icut=find(rankroute(:,1) >= 0 & cumsum(rankroute(:,6)) <= totstock);
         else
-            icut=find(rankroute(:,1) > 0);
+%             icut=find(rankroute(:,1) > 0);
+            icut=find(rankroute(:,1) > 0 & cumsum(rankroute(:,6)) <= totstock);
         end
     elseif profmdl == 2
         if isempty(find(valuex > 0,1)) == 1
-            [~,icut]=min(rankroute(:,2),[],1);
+%             [~,icut]=min(rankroute(:,2),[],1);
+            riskrank=sortrows(rankroute,-2);
+            icut=find(cumsum(riskrank(:,6)) <= totstock);
         elseif isempty(find(cumsum(rankroute(:,1)) > 0,1)) == 1
-            icut=find(cumsum(rankroute(:,1)) >= 0);
+%             icut=find(cumsum(rankroute(:,1)) >= 0);
+            icut=find(cumsum(rankroute(:,1)) >= 0 & cumsum(rankroute(:,6)) <= totstock);
         else
-            icut=find(cumsum(rankroute(:,1)) > 0);
+%             icut=find(cumsum(rankroute(:,1)) > 0);
+            icut=find(cumsum(rankroute(:,1)) > 0 & cumsum(rankroute(:,6)) <= totstock);
         end
     end
 end
