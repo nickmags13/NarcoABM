@@ -10,6 +10,8 @@ load savedrngstate.mat
 % addAttachedFiles(poolobj,{'calc_neival.m','optimizeroute_multidto.m',...
 %     'calc_intrisk.m','load_expmntl_parms.m','parsave_illicit_supplychain.m'});
 
+testflag=0;
+
 for erun=1:ERUNS
     
     rng default
@@ -37,7 +39,7 @@ for erun=1:ERUNS
         [sl_max,sl_min,baserisk,riskmltplr,startstock,sl_learn,rt_learn,...
             losslim,prodgrow,targetseize,intcpctymodel,profitmodel,endstock,...
             growthmdl,timewght,locthink,expandmax,empSLflag,optSLflag,...
-            suitflag,extnetflag]=load_expmntl_parms(ERUNS);
+            suitflag,extnetflag,rtcap]=load_expmntl_parms(ERUNS);
         
         ccdb = [1	0	1	1	1	0	0	1	1	1	0	0	0	0   0
                 0	0	3	1	1	0	0	1	0	0	0	1	0	1   0
@@ -226,7 +228,7 @@ for erun=1:ERUNS
             load network_file_RAT
         else
             load network_file_nodirect
-            EdgeTable.Capacity=200*ones(height(EdgeTable),1);
+            EdgeTable.Capacity=rtcap(erun)*ones(height(EdgeTable),1);
         end
         
         nnodes=height(NodeTable);
@@ -261,8 +263,17 @@ for erun=1:ERUNS
              EdgeTable=ext_EdgeTable;
              nnodes=height(NodeTable);
              endnodeset=[mexnode 161:nnodes];
-             EdgeTable.Capacity=200*ones(height(EdgeTable),1);
-             EdgeTable.Capacity(157:160)=2000*ones(4,1);
+             EdgeTable.Capacity=rtcap(erun)*ones(height(EdgeTable),1);
+             iprimarymov=find(EdgeTable.EndNodes(:,1)==1 | ...
+                 ismember(EdgeTable.EndNodes(:,1),157:160)==1);
+%              icaribmov=find(EdgeTable.EndNodes(:,1)==1 & ...
+%                  ismember(EdgeTable.EndNodes(:,2),find(NodeTable.DTO == 2))==1);
+%              ipacmov=find(EdgeTable.EndNodes(:,1)==1 & ...
+%                  ismember(EdgeTable.EndNodes(:,2),find(NodeTable.DTO == 1))==1);
+             EdgeTable.Capacity(iprimarymov)=30*rtcap(erun)*ones(length(iprimarymov),1); %based on destination-specific volumes maximum per month
+%              EdgeTable.Capacity(icaribmov)=0.3*rtcap(erun)*ones(length(iprimarymov),1);
+%              EdgeTable.Capacity(iprimarymov)=rtcap(erun)*ones(length(iprimarymov),1);
+            EdgeTable.Capacity(endnodeset)=50*rtcap(erun)*ones(length(endnodeset),1);
         end
         
         ADJ=zeros(nnodes);      % adjacency matrix for trafficking network
@@ -353,16 +364,59 @@ for erun=1:ERUNS
                     NodeTable.Lon([156; 161; 162; 163])];
                 [d1km,d2km]=lldistkm(latlon1,latlon2);
                 DIST(1,[156; 161; 162; 163])=d1km;
+                
+                latlon1=[NodeTable.Lat(157*ones(length(find(ADJ(157,:)==1)),1)) ...
+                    NodeTable.Lon(157*ones(length(find(ADJ(157,:)==1)),1))];
+                latlon2=[NodeTable.Lat(find(ADJ(157,:)==1)') ... 
+                    NodeTable.Lon(find(ADJ(157,:)==1)')];
+                [d1km,d2km]=lldistkm(latlon1,latlon2);
+                DIST(157,find(ADJ(157,:)==1)')=d1km;
+                
+                latlon1=[NodeTable.Lat(158*ones(length(find(ADJ(158,:)==1)),1)) ...
+                    NodeTable.Lon(158*ones(length(find(ADJ(158,:)==1)),1))];
+                latlon2=[NodeTable.Lat(find(ADJ(158,:)==1)') ... 
+                    NodeTable.Lon(find(ADJ(158,:)==1)')];
+                [d1km,d2km]=lldistkm(latlon1,latlon2);
+                DIST(158,find(ADJ(158,:)==1)')=d1km;
+                
+                latlon1=[NodeTable.Lat(159*ones(length(find(ADJ(159,:)==1)),1)) ...
+                    NodeTable.Lon(159*ones(length(find(ADJ(159,:)==1)),1))];
+                latlon2=[NodeTable.Lat(find(ADJ(159,:)==1)') ... 
+                    NodeTable.Lon(find(ADJ(159,:)==1)')];
+                [d1km,d2km]=lldistkm(latlon1,latlon2);
+                DIST(159,find(ADJ(159,:)==1)')=1.25*d1km;
+                
+                latlon1=[NodeTable.Lat(160*ones(length(find(ADJ(160,:)==1)),1)) ...
+                    NodeTable.Lon(160*ones(length(find(ADJ(160,:)==1)),1))];
+                latlon2=[NodeTable.Lat(find(ADJ(160,:)==1)') ... 
+                    NodeTable.Lon(find(ADJ(160,:)==1)')];
+                [d1km,d2km]=lldistkm(latlon1,latlon2);
+                DIST(160,find(ADJ(160,:)==1)')=d1km;
             end
             %Create added value matrix (USD) and price per node
             ADDVAL(j,ADJ(j,:)==1)=deltavalue.*DIST(j,ADJ(j,:)==1);
             if j == 1
                 PRICE(j,TSTART)=startvalue;
                 %         PRICE(ADJ(j,:)==1,TSTART)=startvalue+ADDVAL(j,ADJ(j,:)==1);
+            elseif ismember(j,endnodeset) == 1
+                continue
+            elseif ismember(j,157:160) == 1
+                isender=EdgeTable.EndNodes(EdgeTable.EndNodes(:,2) == j,1);
+                inextleg=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
+                PRICE(j,TSTART)=PRICE(isender,TSTART)+ADDVAL(isender,j)+...
+                    PRICE(isender,TSTART)+mean(ADDVAL(j,inextleg));
+                % even prices for long haul routes
+                if j==160
+                   PRICE([157 160],TSTART)=min(PRICE([157 160],TSTART));
+                   PRICE([158 159],TSTART)=min(PRICE([158 159],TSTART));
+                end
             else
                 isender=EdgeTable.EndNodes(EdgeTable.EndNodes(:,2) == j,1);
                 %         isender=find(ADJ(:,j) == 1);
                 PRICE(j,TSTART)=mean(PRICE(isender,TSTART)+ADDVAL(isender,j));
+            end
+            for en=1:length(endnodeset)
+               PRICE(endnodeset(en),TSTART)=max(PRICE(ADJ(:,endnodeset(en))==1,TSTART)); 
             end
             RMTFAC(j,ADJ(j,:)==1)=remotefac(ADJ(j,:)==1);
             COASTFAC(j,ADJ(j,:)==1)=coastfac(ADJ(j,:)==1);
@@ -384,7 +438,7 @@ for erun=1:ERUNS
 %             CTRANS(j,ireceiver(idist_air),TSTART)=ctrans_air.*...
 %                 DIST(j,ireceiver(idist_air))./DIST(1,nnodes);
             
-            if NodeTable.CoastDist(j) < 20
+            if NodeTable.CoastDist(j) < 20 || ismember(j,157:159) == 1
                 ireceiver=EdgeTable.EndNodes(EdgeTable.EndNodes(:,1) == j,2);
                 idist_coast=(NodeTable.CoastDist(ireceiver) < 20);
                 idist_inland=(NodeTable.CoastDist(ireceiver) >= 20);
@@ -393,6 +447,13 @@ for erun=1:ERUNS
                     DIST(j,ireceiver(idist_coast))./DIST(1,mexnode);
 %                 CTRANS(j,ireceiver(idist_coast),TSTART)=ctrans_coast.*...
 %                     DIST(j,ireceiver(idist_coast))./DIST(1,nnodes);
+%                 
+
+                if ismember(j,157:159) == 1
+                    CTRANS(j,ireceiver(idist_coast),TSTART)=0;
+                    CTRANS(1,j,TSTART)=CTRANS(1,j,TSTART)+mean(ctrans_coast.*...
+                    DIST(j,ireceiver(idist_coast))./DIST(1,mexnode));
+                end
             end
             
             %     % Create gridded distance from node for calculating land use
@@ -501,7 +562,8 @@ for erun=1:ERUNS
         for w=1:length(rinit)
             MOV(rinit(w),cinit(w),1)=FLOW(rinit(w),cinit(w),1);
         end
-        [Tflow,Tintrd]=intrd_tables(FLOW,slsuccess,SLPROB,NodeTable,EdgeTable,t);
+        [Tflow,Tintrd]=intrd_tables(FLOW,slsuccess,SLPROB,NodeTable,EdgeTable,t,testflag);
+        
         %%
         %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         %@@@@@@@@@@ Dynamics @@@@@@@@@@@@
@@ -518,7 +580,7 @@ for erun=1:ERUNS
             %%
             %%%% Check for interdiction events from optimization model
             if optSLflag(erun) == 1
-                [intrdct_events,intrdct_nodes]=optimize_interdiction(t,ADJ);
+                [intrdct_events,intrdct_nodes]=optimize_interdiction(t,ADJ,testflag);
                 slevent(:,:,t)=intrdct_events;
                 slnodes(t)=mat2cell(intrdct_nodes,size(intrdct_nodes,1),size(intrdct_nodes,2));
             else
@@ -767,24 +829,24 @@ for erun=1:ERUNS
                     fwdnei=inei;
                     t_eff=0:12;
                     if t == TSTART+1
-%                         intrdoccur=[zeros(12,length(fwdnei)); intrdevent(fwdnei,TSTART+1)'];
-                        sloccur=[zeros(12,length(fwdnei)); slevent(n,fwdnei,TSTART+1)];
-%                         sloccur=slevent(n,fwdnei,TSTART+1:t);
+%                         sloccur=[zeros(12,length(fwdnei)); slevent(n,fwdnei,TSTART+1)];
+                        sloccur=[zeros(12,length(fwdnei)); (slsuccess(n,fwdnei,TSTART+1)>0)];
                     elseif t > TSTART+1 && length(fwdnei) == 1
-%                         intrdoccur=[zeros(13-length(max(TSTART+1,t-12):t),1); ...
-%                             squeeze(intrdevent(fwdnei,max(TSTART+1,t-12):t)')];
+%                         sloccur=[zeros(13-length(max(TSTART+1,t-12):t),1); ...
+%                             squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t))];
                         sloccur=[zeros(13-length(max(TSTART+1,t-12):t),1); ...
-                            squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t))];
-%                         sloccur=squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t));
+                            squeeze(slsuccess(n,fwdnei,max(TSTART+1,t-12):t)>0)];
                     else
-%                         intrdoccur=[zeros(13-length(max(TSTART+1,t-12):t),length(fwdnei)); ...
-%                             squeeze(intrdevent(fwdnei,max(TSTART+1,t-12):t)')];
+%                         sloccur=[zeros(13-length(max(TSTART+1,t-12):t),length(fwdnei)); ...
+%                             squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t))'];
                         sloccur=[zeros(13-length(max(TSTART+1,t-12):t),length(fwdnei)); ...
-                            squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t))'];
-%                         sloccur=squeeze(slevent(n,fwdnei,max(TSTART+1,t-12):t))';
+                            squeeze(slsuccess(n,fwdnei,max(TSTART+1,t-12):t)>0)'];
                     end
                     [sl_risk,slevnt,tmevnt]=calc_intrisk(sloccur,...
                         t_eff,alpharisk,betarisk,timeweight);
+                    if t >= 17
+                        keyboard
+                    end
                     SLRISK(n,fwdnei)=sl_risk;
 %                     SLRISK(n,fwdnei)=(1-delta_rt)*SLRISK(n,fwdnei)+delta_rt*sl_risk;
 %                     RISKPREM(n,fwdnei,t)=(1-delta_rt).*RISKPREM(n,fwdnei,t-1)+...
@@ -930,7 +992,8 @@ for erun=1:ERUNS
                 %%% routes
                 idtonet=dtorefvec(~ismember(dtorefvec,endnodeset));
                 if sum(STOCK(idtonet,t)) >= max(dtoEdgeTable.Capacity)
-                    supplyfit=losstolval;   %triggers expansion of one route
+                    supplyfit=max(supplyfit,losstolval*sum(STOCK(idtonet,t))/rtcap(erun));   %triggers expansion of one route
+%                     supplyfit=max(supplyfit,mean(dtoADDVAL(dtoADDVAL > 0))*sum(STOCK(idtonet,t)));
                 end
                 
 %                 %call top-down route optimization
@@ -1007,7 +1070,7 @@ for erun=1:ERUNS
             slcount_vol(t)=sum(h_slsuccess(h_slsuccess > 0));
             
             %%%Output tables for flows(t) and interdiction prob(t-1)
-            [Tflow,Tintrd]=intrd_tables(FLOW,slsuccess,SLPROB,NodeTable,EdgeTable,t);
+            [Tflow,Tintrd]=intrd_tables(FLOW,slsuccess,SLPROB,NodeTable,EdgeTable,t,testflag);
         end
         
         nactnodes=zeros(ndto,TMAX);
@@ -1051,11 +1114,12 @@ for erun=1:ERUNS
             end
         end
 %         t_firstmov(nnodes)=find(STOCK(nnodes,:)>0,1,'first');
-        
-        savefname=sprintf('supplychain_results_optint_061020_%d_%d',erun,mrun);
+        if testflag == 0
+        savefname=sprintf('supplychain_results_optint_072020_%d_%d',erun,mrun);
         parsave_illicit_supplychain(savefname,EdgeTable,NodeTable,MOV,FLOW,OUTFLOW,...
             CTRANS,TOTCPTL,DTOBDGT,slsuccess,activeroute,STOCK,RISKPREM,slperevent,slval,...
             nactnodes,sltot,t_firstmov,PRICE,slcount_edges,slcount_vol,slnodes);
+        end
         
     end
 end

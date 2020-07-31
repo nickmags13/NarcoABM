@@ -75,17 +75,19 @@ if length(dtos) > 1
             if isempty(find(valuex(dtonei == dtos(j)) > 0,1)) == 1
 %                 [~,subicut]=min(rankroute(idto,2),[],1);
 %                 riskrank=sortrows(rankroute,-2);
-                subicut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
+                subicut=(1:find(cumsum(rankroute(idto,6)) >= totstock,1,'first'))';
             elseif isempty(find(rankroute(idto,1) > 0,1)) == 1
-%                 subicut=find(rankroute(idto,1) >= 0);
-                volcut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
+                %                 subicut=find(rankroute(idto,1) >= 0);
+                volcut=(1:find(cumsum(rankroute(idto,6)) >= totstock,1,'first'))';
                 valcut=find(rankroute(idto,1) >= 0);
                 subicut=ismember(valcut,volcut);
-%                 subicut=find(rankroute(idto,1) >= 0 & cumsum(rankroute(idto,6)) <= totstock);
+                %                 subicut=find(rankroute(idto,1) >= 0 & cumsum(rankroute(idto,6)) <= totstock);
+            elseif isempty(find(cumsum(rankroute(idto,6)) >= totstock,1)) == 1
+                subicut=find(rankroute(idto,1) >= 0);
             else
 %                 subicut=find(rankroute(idto,1) > 0);
 %                 subicut=find(rankroute(idto,1) > 0 & cumsum(rankroute(idto,6)) <= totstock);
-                volcut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
+                volcut=(1:find(cumsum(rankroute(idto,6)) >= totstock,1,'first'))';
                 valcut=find(rankroute(idto,1) > 0);
                 subicut=ismember(valcut,volcut);
             end
@@ -97,17 +99,19 @@ if length(dtos) > 1
             if isempty(find(valuex(dtonei == dtos(j)) > 0,1)) == 1
 %                 [~,subicut]=min(rankroute(idto,2),[],1);
 %                 riskrank=sortrows(rankroute,-2);
-                subicut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
+                subicut=(1:find(cumsum(rankroute(idto,6)) >= totstock,1,'first'))';
             elseif isempty(find(cumsum(rankroute(idto,1)) > 0,1)) == 1
-%                 subicut=find(cumsum(rankroute(idto,1)) >= 0);
-%                 subicut=find(cumsum(rankroute(idto,1)) >= 0 & cumsum(rankroute(idto,6)) <= totstock);
-                volcut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
+                %                 subicut=find(cumsum(rankroute(idto,1)) >= 0);
+                %                 subicut=find(cumsum(rankroute(idto,1)) >= 0 & cumsum(rankroute(idto,6)) <= totstock);
+                volcut=(1:find(cumsum(rankroute(idto,6)) >= totstock,1,'first'))';
                 valcut=find(cumsum(rankroute(idto,1)) >= 0);
                 subicut=ismember(valcut,volcut);
+            elseif isempty(find(cumsum(rankroute(idto,6)) >= totstock,1)) == 1
+                subicut=find(rankroute(idto,1) >= 0);
             else
 %                 subicut=find(cumsum(rankroute(idto,1)) > 0);
 %                 subicut=find(cumsum(rankroute(idto,1)) > 0 & cumsum(rankroute(idto,6)) <= totstock);
-                volcut=(1:find(cumsum(rankroute(idto,6)) > totstock,1,'first'))';
+                volcut=(1:find(cumsum(rankroute(idto,6)) >= totstock,1,'first'))';
                 valcut=find(cumsum(rankroute(idto,1)) > 0);
                 subicut=ismember(valcut,volcut);
             end
@@ -128,17 +132,19 @@ else
         if isempty(find(valuex > 0,1)) == 1
 %             [~,icut]=min(rankroute(:,2),[],1);
 %             riskrank=sortrows(rankroute,-2);
-            icut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
+            icut=(1:find(cumsum(rankroute(:,6)) >= totstock,1,'first'))';
         elseif isempty(find(rankroute(:,1) > 0,1)) == 1
             %             icut=find(rankroute(:,1) >= 0);
 %             icut=find(rankroute(:,1) >= 0 & cumsum(rankroute(:,6)) <= totstock);
-            volcut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
+            volcut=(1:find(cumsum(rankroute(:,6)) >= totstock,1,'first'))';
             valcut=find(rankroute(:,1) >= 0);
             icut=ismember(valcut,volcut);
+        elseif isempty(find(cumsum(rankroute(:,6)) >= totstock,1)) == 1
+            icut=find(rankroute(:,1) >= 0);
         else
 %             icut=find(rankroute(:,1) > 0);
 %             icut=find(rankroute(:,1) > 0 & cumsum(rankroute(:,6)) <= totstock);
-            volcut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
+            volcut=(1:find(cumsum(rankroute(:,6)) >= totstock,1,'first'))';
             valcut=find(rankroute(:,1) > 0);
             icut=ismember(valcut,volcut);
         end
@@ -146,18 +152,20 @@ else
         if isempty(find(valuex > 0,1)) == 1
 %             [~,icut]=min(rankroute(:,2),[],1);
 %             riskrank=sortrows(rankroute,-2);
-            icut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
+            icut=(1:find(cumsum(rankroute(:,6)) >= totstock,1,'first'))';
 %             icut=find(cumsum(riskrank(:,6)) <= totstock);
         elseif isempty(find(cumsum(rankroute(:,1)) > 0,1)) == 1
-%             icut=find(cumsum(rankroute(:,1)) >= 0);
-%             icut=find(cumsum(rankroute(:,1)) >= 0 & cumsum(rankroute(:,6)) <= totstock);
-            volcut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
+            %             icut=find(cumsum(rankroute(:,1)) >= 0);
+            %             icut=find(cumsum(rankroute(:,1)) >= 0 & cumsum(rankroute(:,6)) <= totstock);
+            volcut=(1:find(cumsum(rankroute(:,6)) >= totstock,1,'first'))';
             valcut=find(cumsum(rankroute(:,1)) >= 0);
             icut=ismember(valcut,volcut);
+        elseif isempty(find(cumsum(rankroute(:,6)) >= totstock,1)) == 1
+            icut=find(rankroute(:,1) >= 0);
         else
 %             icut=find(cumsum(rankroute(:,1)) > 0);
 %             icut=find(cumsum(rankroute(:,1)) > 0 & cumsum(rankroute(:,6)) <= totstock);
-            volcut=(1:find(cumsum(rankroute(:,6)) > totstock,1,'first'))';
+            volcut=(1:find(cumsum(rankroute(:,6)) >= totstock,1,'first'))';
             valcut=find(cumsum(rankroute(:,1)) > 0);
             icut=ismember(valcut,volcut);
         end

@@ -2,7 +2,7 @@
 
 % cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_full_020618
 % cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_null_013018
-cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\model_results\SupplyChain_optint_060420
+cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\model_results\SupplyChain_optint_071620
 fnames=dir;
 fnamescell=struct2cell(fnames);
 h=strncmp('supplychain_results_',fnamescell(1,:),20);
@@ -53,7 +53,7 @@ PRMYMV=zeros(1,MRUNS*ERUNS);
 edgecompare=cell(1,length(hind));
     
 for mr=1:length(hind)   % MRUNS*EXPTRUNS
-    h=strcmp(sprintf('supplychain_results_optint_060420_%d_%d.mat',...
+    h=strcmp(sprintf('supplychain_results_optint_071620_%d_%d.mat',...
         batchind(mr,1),batchind(mr,2)),fnamescell(1,:));
 %     h=strcmp(sprintf('supplychain_results_013018_%d_%d.mat',...
 %         batchind(mr,1),batchind(mr,2)),fnamescell(1,:));

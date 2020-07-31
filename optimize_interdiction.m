@@ -1,7 +1,11 @@
 %%%%%%%%%%   Interdiction events from optimization model   %%%%%%%%%%%%%%%%
-function [intrdct_events,intrdct_nodes]=optimize_interdiction(t,ADJ)
+function [intrdct_events,intrdct_nodes]=optimize_interdiction(t,ADJ,testflag)
 
-cd C:\Users\nrmagliocca\'Google Drive'\NSF_EAGER_Models\INT_Nodes
+if testflag  == 1
+    cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\ABM_test_files\MCI_3_061020
+else
+    cd C:\Users\nrmagliocca\'Google Drive'\NSF_EAGER_Models\INT_Nodes
+end
 
 readflag=0;
 % fnames=dir;

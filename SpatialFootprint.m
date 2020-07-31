@@ -1,17 +1,17 @@
 % cd C:\Users\nrmagliocca\'Box Sync'\'Data Drive'\model_results\SupplyChain_full_021618
-cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\model_results\SupplyChain_optint_060920
+cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\model_results\SupplyChain_optint_072020
 % load supplychain_results_021618_1_6.mat
-load supplychain_results_optint_060920_1_1.mat
+load supplychain_results_optint_072020_1_1.mat
 
 % [CAadm0,CAattr0]=shaperead('D:\CentralAmerica\GADM\g2015_2014_0\CAadm0.shp',...
 %             'UseGeoCoords',true);
 % [CAfull,CAfullattr]=shaperead('D:\CentralAmerica\GADM\CA_full_theater_0.shp','UseGeoCoords',...
 %             true);
 [CAfull,CAfullattr]=shaperead('D:\CentralAmerica\GADM\CA_full_theater_0_simple_01.shp','UseGeoCoords',...
-            true);
+    true);
 
 [CAadm1,CAattr1]=shaperead('D:\CentralAmerica\GADM\g2015_2014_1\CAadm1.shp',...
-            'UseGeoCoords',true); 
+    'UseGeoCoords',true);
 % lon_west=min(lon_list);
 % lon_east=max(lon_list);
 % lat_north=max(lat_list);
@@ -28,7 +28,7 @@ nnodes=NNODES;
 
 % cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\NarcoABM
 %%% Trafficking movie
-writerObj = VideoWriter('intopt_MCI_3_long_fast_2.mp4','MPEG-4');
+writerObj = VideoWriter('intopt_MCI_3_long_fast_180.mp4','MPEG-4');
 writerObj.FrameRate=10;
 open(writerObj);
 
@@ -43,12 +43,16 @@ ylim([-5 20])
 % load coastlines
 % geoshow(coastlat,coastlon);
 hold on
-idto1=(NodeTable.DTO == 1);
-idto2=(NodeTable.DTO == 2);
+idto1=(NodeTable.DTO == 1); %Pacific
+idto2=(NodeTable.DTO == 2); %Caribbean
+% h_nodes1=plot(NodeTable.Lon(idto1),NodeTable.Lat(idto1),'o','MarkerSize',3,'MarkerEdgeColor','k',...
+%     'MarkerFaceColor',[0.5 0.5 1]);
+% h_nodes2=plot(NodeTable.Lon(idto2),NodeTable.Lat(idto2),'o','MarkerSize',3,'MarkerEdgeColor','k',...
+%     'MarkerFaceColor',[0.5 0.8 0.5]);
 h_nodes1=plot(NodeTable.Lon(idto1),NodeTable.Lat(idto1),'o','MarkerSize',3,'MarkerEdgeColor','k',...
-    'MarkerFaceColor',[0.5 0.5 1]);
+    'MarkerFaceColor',[0.5 0.5 0.5]);
 h_nodes2=plot(NodeTable.Lon(idto2),NodeTable.Lat(idto2),'o','MarkerSize',3,'MarkerEdgeColor','k',...
-    'MarkerFaceColor',[0.5 0.8 0.5]);
+    'MarkerFaceColor',[0.5 0.5 0.5]);
 h_producer=plot(NodeTable.Lon(1),NodeTable.Lat(1),'o','MarkerSize',3,'MarkerEdgeColor','k',...
     'MarkerFaceColor',[0.5 0.5 0.5]);
 h_consumer=plot(NodeTable.Lon(nnodes),NodeTable.Lat(nnodes),'o','MarkerSize',3,'MarkerEdgeColor','k',...
@@ -58,7 +62,7 @@ ylabel('Latitude')
 % set(H.Parent,'Visible','off')
 % h_tempo=plot(NodeTable.Lon(1),NodeTable.Lat(1),'o','MarkerSize',4,'MarkerEdgeColor','red','MarkerFaceColor','red');
 % h_tempx=plot(NodeTable.Lon(1),NodeTable.Lat(1),'xk','MarkerSize',20);
-% 
+%
 % lgd=legend('DTO 1','DTO 2','Producer Node','Receiving Node','Cocaine Shipment','Interdiction Event');
 % lgd.FontSize=14;
 
@@ -68,35 +72,36 @@ ylabel('Latitude')
 %                     '-','Color',[0.5 0.5 0.5]);
 % end
 for tt=1:TMAX
+% for tt=1:60
     h_title=title(sprintf('Month = %d',tt));
     h_title.FontSize = 14;
     if tt == 1
-      startval=OUTFLOW(1,tt+1);
-      mrksize=max(ceil(startval/25),4);
-      h_start=plot(NodeTable.Lon(1),NodeTable.Lat(1),'o','MarkerSize',mrksize,...
-          'MarkerEdgeColor','red','MarkerFaceColor','red');
-      frame = getframe(hmov);
-      writeVideo(writerObj,frame);
-      delete(h_start)
+        startval=OUTFLOW(1,tt+1);
+        mrksize=max(ceil(startval/25),4);
+        h_start=plot(NodeTable.Lon(1),NodeTable.Lat(1),'o','MarkerSize',mrksize,...
+            'MarkerEdgeColor','red','MarkerFaceColor','red');
+        frame = getframe(hmov);
+        writeVideo(writerObj,frame);
+        delete(h_start)
     else
         % plot network at this time step
         [r,c]=ind2sub(size(FLOW(:,:,1)),find(FLOW(:,:,tt)>0));
         for i=1:length(r)
-                h_edge(i)=plot([NodeTable.Lon(r(i)) NodeTable.Lon(c(i))],...
-                    [NodeTable.Lat(r(i)) NodeTable.Lat(c(i))],'-','Color',[0.5 0.5 0.5]);
-%             %%%% Color-code routes
-%             if NodeTable.DTO(r(i)) == 1 || NodeTable.DTO(c(i)) == 1
-%                 h_edge(i)=plot([NodeTable.Lon(r(i)) NodeTable.Lon(c(i))],...
-%                     [NodeTable.Lat(r(i)) NodeTable.Lat(c(i))],'-','Color',[0.5 0.5 1]);
-%             elseif NodeTable.DTO(r(i)) == 2 || NodeTable.DTO(c(i)) == 2
-%                 h_edge(i)=plot([NodeTable.Lon(r(i)) NodeTable.Lon(c(i))],...
-%                     [NodeTable.Lat(r(i)) NodeTable.Lat(c(i))],'-','Color',[0.5 0.8 0.5]);
-%             end
+            h_edge(i)=plot([NodeTable.Lon(r(i)) NodeTable.Lon(c(i))],...
+                [NodeTable.Lat(r(i)) NodeTable.Lat(c(i))],'-','Color',[0.5 0.5 0.5]);
+            %             %%%% Color-code routes
+            %             if NodeTable.DTO(r(i)) == 1 || NodeTable.DTO(c(i)) == 1
+            %                 h_edge(i)=plot([NodeTable.Lon(r(i)) NodeTable.Lon(c(i))],...
+            %                     [NodeTable.Lat(r(i)) NodeTable.Lat(c(i))],'-','Color',[0.5 0.5 1]);
+            %             elseif NodeTable.DTO(r(i)) == 2 || NodeTable.DTO(c(i)) == 2
+            %                 h_edge(i)=plot([NodeTable.Lon(r(i)) NodeTable.Lon(c(i))],...
+            %                     [NodeTable.Lat(r(i)) NodeTable.Lat(c(i))],'-','Color',[0.5 0.8 0.5]);
+            %             end
         end
         
         % plot interdiction
         h_slnodes=plot(NodeTable.Lon(slnodes{tt}),NodeTable.Lat(slnodes{tt}),...
-            '^','MarkerSize',5,'MarkerEdgeColor','k','MarkerFaceColor','c');
+            '^','MarkerSize',10,'MarkerEdgeColor','k','MarkerFaceColor','b');
         if isempty(find(slsuccess(:,:,tt)>0,1)) == 0
             [ir,ic]=ind2sub(size(slsuccess(:,:,1)),find(slsuccess(:,:,tt)>0));
             for ii=1:length(ir)
@@ -120,108 +125,52 @@ for tt=1:TMAX
             end
             frame = getframe(hmov);
             writeVideo(writerObj,frame);
-            delete(h_intedge)
-            delete(h_intflow)
+            %             delete(h_intedge)
+            %             delete(h_intflow)
         end
-%         usenders=unique(r);
-%         utakers=unique(c);
-%         for j=1:length(usenders)
-%             islct=find(r == usenders(j));
-%             irec=find(r == usenders(utakers == usenders(j)));
-%             snodes=r(islct);
-%             tnodes=c(islct);
-%             for s=1:length(islct)
-%                 if j > 1
-% %                     delete(h_flow(utakers == r(islct(s))))
-%                 delete(h_flow(utakers(irec) == r(islct(s))))
-%                 end
-%                 flowval=max(ceil(MOV(c(islct(s)),r(islct(s)),tt)/10),4);
-%                 h_flow(s)=plot(NodeTable.Lon(c(islct(s))),NodeTable.Lat(c(islct(s))),...
-%                     'o','MarkerSize',flowval,'MarkerEdgeColor','red','MarkerFaceColor','red');
-%             end
-%             frame = getframe(hmov);
-%             writeVideo(writerObj,frame);
-%             delete(h_flow(s))
-%         end
         utakers=find(sum(MOV(:,:,tt),2) > 0);
-%         for n=1:nnodes-1
-%             if n == 1
-                isend=find(MOV(:,1,tt)> 0);
-                for s=1:length(isend)
-%                     flowval=max(ceil(MOV(isend(s),1,tt)/10),4);
-                    flowval=max(ceil(MOV(isend(s),1,tt)/3661),4);
-                    h_flow(s)=plot(NodeTable.Lon(isend(s)),NodeTable.Lat(isend(s)),...
-                        'o','MarkerSize',flowval,'MarkerEdgeColor','red','MarkerFaceColor','red');
-                end
-                frame = getframe(hmov);
-                writeVideo(writerObj,frame);
-                delete(h_flow)
-%             else
-                for j=1:length(utakers)
-                    isend=find(MOV(:,utakers(j),tt) > 0);
-                    for s=1:length(isend)
-%                     flowval=max(ceil(MOV(isend(s),utakers(j),tt)/10),4);
-                    flowval=max(ceil(MOV(isend(s),utakers(j),tt)/3661),4);
-                    h_flow(s)=plot(NodeTable.Lon(isend(s)),NodeTable.Lat(isend(s)),...
-                        'o','MarkerSize',flowval,'MarkerEdgeColor','red','MarkerFaceColor','red');
-                    end
-                    frame = getframe(hmov);
-                writeVideo(writerObj,frame);
-                delete(h_flow)
-                end
-%             end
-%         end
-
-%         for n=1:nnodes-1
-% %             isend=find(MOV(:,n,tt)>0);
-%             isend=find(FLOW(n,:,tt)>0);
-%             if isempty(find(isend>0,1)) == 1
-%                 continue
-% %             elseif n == nnodes
-% %                 flowval=max(ceil(sum(FLOW(:,n,tt))/25),4);
-% %                 h_flow=plot(NodeTable.Lon(n),NodeTable.Lat(n),'o','MarkerSize',...
-% %                     flowval,'MarkerEdgeColor','red','MarkerFaceColor','red');
-% %                 frame = getframe(hmov);
-% %                 writeVideo(writerObj,frame);
-% %                 delete(h_flow)
-%             else
-%                 %             lons=[NodeTable.Lon(n*ones(1,length(isend))) NodeTable.Lon(isend)];
-%                 %             lats=[NodeTable.Lat(n*ones(1,length(isend))) NodeTable.Lat(isend)];
-%                 %             h_edge=plot([NodeTable.Lon(n*ones(1,length(isend))) NodeTable.Lon(isend)],...
-%                 %                 [NodeTable.Lat(n*ones(1,length(isend))) NodeTable.Lat(isend)],'-k');
-%                 for s=1:length(isend)
-%                     %                     if slsuccess(n,isend(s),tt) == 1
-%                     %                         h_flow(s)=plot(NodeTable.Lon(isend(s)),NodeTable.Lat(isend(s)),...
-%                     %                             'xk','MarkerSize',20);
-%                     %                     else
-%                     flowval=max(ceil(MOV(isend(s),n,tt)/10),4);
-% %                     flowval=max(ceil(FLOW(n,isend(s),tt)/25),4);
-%                     h_flow(s)=plot(NodeTable.Lon(isend(s)),NodeTable.Lat(isend(s)),...
-%                         'o','MarkerSize',flowval,'MarkerEdgeColor','red','MarkerFaceColor','red');
-%                     %                     h_flow=plot(NodeTable.Lon(n*ones(length(isend),1)),...
-%                     %                         NodeTable.Lat(isend'),'o','MarkerSize',flowval,...
-%                     %                         'MarkerEdgeColor','k','MarkerFaceColor','red');
-%                     %                     end
-%                 end
-%                 keyboard
-%                 frame = getframe(hmov);
-%                 writeVideo(writerObj,frame);
-%                 delete(h_flow)
-%             end
-%         end
+        isend=find(MOV(:,1,tt)> 0);
+        for s=1:length(isend)
+%             flowval=max(ceil(MOV(isend(s),1,tt)/100),4);
+            flowval=max(ceil(MOV(isend(s),1,tt)/10000),4);
+            h_flow(s)=plot(NodeTable.Lon(isend(s)),NodeTable.Lat(isend(s)),...
+                'o','MarkerSize',flowval,'MarkerEdgeColor','red','MarkerFaceColor','red');
+        end
+%         legend([h_nodes1(1) h_edge(1) h_slnodes(1) h_intedge(1) h_intflow(1) h_flow(1)],...
+%         'Trafficking Network Nodes','Trafficking Network Links',...
+%             'Location of Interdiction Assets','Interdicted Network Link',...
+%             'Interdicted Network Node','Cocaine Shipments',...
+%             'Location','southeast')
+        frame = getframe(hmov);
+        writeVideo(writerObj,frame);
+        delete(h_flow)
+        for j=1:length(utakers)
+            isend=find(MOV(:,utakers(j),tt) > 0);
+            for s=1:length(isend)
+%                 flowval=max(ceil(MOV(isend(s),utakers(j),tt)/100),4);
+                flowval=max(ceil(MOV(isend(s),utakers(j),tt)/10000),4);
+                h_flow(s)=plot(NodeTable.Lon(isend(s)),NodeTable.Lat(isend(s)),...
+                    'o','MarkerSize',flowval,'MarkerEdgeColor','red','MarkerFaceColor','red');
+            end
+            frame = getframe(hmov);
+            writeVideo(writerObj,frame);
+            delete(h_flow)
+        end
         delete(h_edge)
         delete(h_slnodes)
-%         frame = getframe(hmov);
-%         writeVideo(writerObj,frame);
-%         if exist('h_edge') == 1
-%             delete(h_edge)
-%         end
-%         if exist('h_intedge') == 1
-%             delete(h_intedge)
-%         end
-%         if exist('h_intflow') == 1
-%             delete(h_intflow)
-%         end
+%         delete(h_intedge)
+%         delete(h_intflow)
+        %         frame = getframe(hmov);
+        %         writeVideo(writerObj,frame);
+        %         if exist('h_edge') == 1
+        %             delete(h_edge)
+        %         end
+        if exist('h_intedge','var') == 1
+            delete(h_intedge)
+        end
+        if exist('h_intflow','var') == 1
+            delete(h_intflow)
+        end
     end
 end
 close(writerObj);

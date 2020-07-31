@@ -1,5 +1,5 @@
 %%%%%% Interdiction Initialization %%%%%%%%%%
-function [Tflow,Tintrd]=intrd_tables(FLOW,slsuccess,SLPROB,NodeTable,EdgeTable,t)
+function [Tflow,Tintrd]=intrd_tables(FLOW,slsuccess,SLPROB,NodeTable,EdgeTable,t,testflag)
 
 varTypes={'double','double','double','double'};
 Tflow=table('Size',[height(EdgeTable) 4],'VariableTypes',varTypes,...
@@ -39,7 +39,9 @@ else
     t2=floor(t/10);
 end
 t3=mod(t,10);
-cd C:\Users\nrmagliocca\'Google Drive'\NSF_EAGER_Models\ABM_Results
-writetable(Tflow,sprintf('%d%d%d_SL_3_MCI.txt',t1,t2,t3))
-writetable(Tintrd,sprintf('%d%d%d_SLPROB_3_MCI.txt',t1,t2,t3)) %apply to next time step's interdiction actions
+if testflag == 0
+    cd C:\Users\nrmagliocca\'Google Drive'\NSF_EAGER_Models\ABM_Results
+    writetable(Tflow,sprintf('%d%d%d_SL_3_MCI.txt',t1,t2,t3))
+    writetable(Tintrd,sprintf('%d%d%d_SLPROB_3_MCI.txt',t1,t2,t3)) %apply to next time step's interdiction actions
+end
 cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\NarcoABM

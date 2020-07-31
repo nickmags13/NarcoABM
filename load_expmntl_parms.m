@@ -1,6 +1,6 @@
 function [sl_max,sl_min,baserisk,riskmltplr,startstock,sl_learn,rt_learn,...
     losslim,prodgrow,targetseize,intcpctymodel,profitmodel,endstock,growthmdl,...
-    timewght,locthink,expandmax,empSLflag,optSLflag,suitflag,extnetflag]=load_expmntl_parms(ERUNS)
+    timewght,locthink,expandmax,empSLflag,optSLflag,suitflag,extnetflag,rtcap]=load_expmntl_parms(ERUNS)
     
 empSLflag=zeros(1,ERUNS);    %determines is empirical (1) or artificial (0) S&L schedule used
 % optSLflag=zeros(1,ERUNS);   %use interdiction events from optimization model (1)
@@ -14,6 +14,18 @@ sl_max=125*ones(1,ERUNS);       %baseline; maximum interdiction capacity
 % sl_max=114*ones(1,ERUNS);
 sl_min=ceil(sl_max/6);          %baseline; minimum interdiction capacity
 % sl_min=ceil(sl_max/2);
+% rtcap=166000*ones(1,ERUNS);   %baseline; route capacity based on maximum destination-specific shipment volumes per month
+rtcap=4500*ones(1,ERUNS);   %largest single desitnation annual total (~52000/12 = 4333)
+% CCDB year 2015 there were an average of 206 events (Carib and EP
+% combined) per month, and a total volume of 1,592 MT. Assuming 25%
+% underreporting in both events and volume, 258 events per month and a
+% total volume of 1,990 MT or 166 MT per month. That would give an average
+% capcaity of 644 kilos per movement per month.
+%In 2015, 28%/72% of primary movements were in the Carib/East Pacific.
+%Given the average monthly flow of 166 MT, 129,480 kg in EPac and 46,480 in
+%Carib.
+% With an average of 166MT per month and 156 over-land nodes, average
+% capacity to handle off of that flow would be 1,071 kg
 
 % % baserisk=0.4592*ones(1,ERUNS);     %baseline; threshold for risk premium, Caulkins et al. (1993)
 % baserisk=[0.33 0.38 0.43 0.48 0.53];
@@ -22,8 +34,8 @@ riskmltplr=2*ones(1,ERUNS);     %baseline; risk multiplier for risk premium, Cau
 % riskcomp=12000*ones(1,ERUNS);   %baseline; risk compensation factor ofr overland transport, Caulkins et al. (1993)
 
 startstock=200*ones(1,ERUNS);       %baseline; stock at production node (MT)
-endstock=111500*ones(1,ERUNS);
-% endstock=71250*ones(1,ERUNS);
+% endstock=111500*ones(1,ERUNS);
+endstock=1990000*ones(1,ERUNS);
 
 sl_learn=0.6*ones(1,ERUNS);     %baseline; rate of interdiction learning
 % sl_learn=[0.4 0.5 0.6 0.7 0.8];

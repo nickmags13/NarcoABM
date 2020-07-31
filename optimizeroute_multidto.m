@@ -110,11 +110,12 @@ elseif supplyfit >= losstolval    %need to expand supply chain
         potsenders=potsenders(potsenders~=length(dtorefvec));
         for k=1:length(potsenders)
             ipotreceive=find(ismember(potnodes,dtoEdgeTable.EndNodes(...
-                dtoEdgeTable.EndNodes(:,1)==potsenders(k),2)) == 1);
+                dtoEdgeTable.EndNodes(:,1)==dtorefvec(potsenders(k)),2)) == 1);
             if isempty(find(ipotreceive,1)) == 1
                 continue
             end
-            ipotedge=sub2ind(size(dtoSLRISK),potsenders(k)*ones(length(ipotreceive),1),ipotreceive);
+%             ipotedge=sub2ind(size(dtoSLRISK),potsenders(k)*ones(length(ipotreceive),1),ipotreceive);
+            ipotedge=sub2ind(size(dtoSLRISK),potsenders(k)*ones(length(ipotreceive),1),find(ismember(dtorefvec,potnodes(ipotreceive))==1));
             newedgeparms=[newedgeparms; (dtoADDVAL(ipotedge)-...
                dtoCTRANS(ipotedge)) dtoSLRISK(ipotedge) ...
                ipotedge ipotreceive];
