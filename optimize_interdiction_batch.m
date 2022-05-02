@@ -3,7 +3,7 @@ function [intrdct_events,intrdct_nodes]=optimize_interdiction_batch(t,ADJ,testfl
 
 if testflag  == 1
 %     cd \\asfs.asnet.ua-net.ua.edu\users$\home\nrmagliocca\'My Documents'\MATLAB\NarcoLogic\ABM_test_files\MCI_3_061020
-    cd C:\Users\Penelope\Box\NSF_D-ISN\Code\NarcoLogic\MTMCI_IntNodes
+    cd C:\Users\pcbmi\Box\NSF_D-ISN\Code\NarcoLogic\MTMCI_IntNodes
 else
 %     cd C:\Users\nrmagliocca\'Google Drive'\NSF_EAGER_Models\INT_Nodes
 %     cd D:\NSF_EAGER_Models\INT_Nodes

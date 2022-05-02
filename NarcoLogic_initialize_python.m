@@ -1,7 +1,7 @@
 %%%%%%%%% Initialize NarcoLogic for execution from Python %%%%%%%%%%%%%%%%%
 % %%% Notes for executing:
 
-cd C:\Users\Penelope\Box\NSF_D-ISN\Code\NarcoLogic
+cd C:\Users\pcbmi\Box\NSF_D-ISN\Code\NarcoLogic
 
 batchrun=9;
 MRUNS=30;
@@ -335,8 +335,8 @@ CTRANS(:,:,TSTART+1)=CTRANS(:,:,TSTART);
 MOV=zeros(nnodes,nnodes,TMAX);
 
 % Output tables for flows(t) and interdiction prob(t-1)
-t=TSTART;
-if extnetflag == 1
+t=TSTART +1;
+if extnetflag(erun) == 1
     load init_flow_ext
 else
     load init_flow
